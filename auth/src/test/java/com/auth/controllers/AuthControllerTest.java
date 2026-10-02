@@ -25,7 +25,8 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         controller = new AuthController();
-        ReflectionTestUtils.setField(controller, "adminEmail", "admin@flashstock.com");
+        ReflectionTestUtils.setField(controller, "adminEmail", "aron83353@gmail.com");
+        ReflectionTestUtils.setField(controller, "legacyAdminEmailEnabled", false);
         ReflectionTestUtils.setField(controller, "googleClientId", "google-client-id");
         ReflectionTestUtils.setField(controller, "microsoftClientId", "disabled-microsoft-client-id");
     }
@@ -45,12 +46,12 @@ class AuthControllerTest {
     }
 
     @Test
-    void meMarksAdminWhenConfiguredEmailMatchesOAuthEmail() {
+    void meDoesNotGrantAdminFromEmailWhenRoleIsUser() {
         OAuth2User principal = mock(OAuth2User.class);
         Authentication authentication = new TestingAuthenticationToken(principal, "n/a", "ROLE_USER");
-        when(authentication.isAuthenticated()).thenReturn(true);
+        authentication.setAuthenticated(true);
         when(principal.getAttributes()).thenReturn(Map.of(
-                "email", "admin@flashstock.com",
+                "email", "aron83353@gmail.com",
                 "name", "Administrador"
         ));
 
@@ -58,10 +59,21 @@ class AuthControllerTest {
 
         assertEquals("Sesion activa", response.getMessage());
         assertTrue(response.getData().isAuthenticated());
-        assertTrue(response.getData().isAdmin());
-        assertEquals("admin@flashstock.com", response.getData().getEmail());
+        assertFalse(response.getData().isAdmin());
+        assertEquals("aron83353@gmail.com", response.getData().getEmail());
         assertEquals("Administrador", response.getData().getDisplayName());
         assertEquals(List.of("ROLE_USER"), response.getData().getAuthorities());
+    }
+
+    @Test
+    void meMarksAdminWhenRoleAdminIsGranted() {
+        Authentication authentication = new TestingAuthenticationToken(
+                "aron83353@gmail.com", "n/a", "ROLE_ADMIN", "ROLE_USER");
+        authentication.setAuthenticated(true);
+        ApiResponse<SessionUserResponse> response = controller.me(authentication);
+        assertTrue(response.getData().isAuthenticated());
+        assertTrue(response.getData().isAdmin());
+        assertEquals(List.of("ROLE_ADMIN", "ROLE_USER"), response.getData().getAuthorities());
     }
 
     @Test

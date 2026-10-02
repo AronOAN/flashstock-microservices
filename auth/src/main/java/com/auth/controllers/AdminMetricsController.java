@@ -25,7 +25,7 @@ public class AdminMetricsController {
     @Value("${app.security.admin-email:}")
     private String adminEmail;
 
-    @Value("${app.security.legacy-admin-email-enabled:true}")
+    @Value("${app.security.legacy-admin-email-enabled:false}")
     private boolean legacyAdminEmailEnabled;
 
     @GetMapping("/metrics")

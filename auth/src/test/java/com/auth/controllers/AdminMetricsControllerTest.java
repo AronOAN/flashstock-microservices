@@ -18,6 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AdminMetricsControllerTest {
@@ -29,7 +30,8 @@ class AdminMetricsControllerTest {
     void setUp() {
         metricsService = mock(AdminMetricsService.class);
         controller = new AdminMetricsController(metricsService);
-        ReflectionTestUtils.setField(controller, "adminEmail", "admin@flashstock.com");
+        ReflectionTestUtils.setField(controller, "adminEmail", "aron83353@gmail.com");
+        ReflectionTestUtils.setField(controller, "legacyAdminEmailEnabled", false);
     }
 
     @Test
@@ -49,24 +51,20 @@ class AdminMetricsControllerTest {
     }
 
     @Test
-    void metricsAllowsAdminByConfiguredEmail() {
-        AdminMetricsResponse metrics = AdminMetricsResponse.builder()
-                .timestamp("2026-06-09T10:00:00")
-                .inventorySkuCount(1)
-                .build();
-        when(metricsService.getAdminMetrics()).thenReturn(metrics);
-
+    void metricsRejectsConfiguredEmailWithoutAdminRole() {
         Authentication authentication = mock(Authentication.class);
         OAuth2User principal = mock(OAuth2User.class);
         when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getAuthorities()).thenReturn(List.of());
         when(authentication.getName()).thenReturn("fallback@flashstock.com");
         when(authentication.getPrincipal()).thenReturn(principal);
-        when(principal.getAttributes()).thenReturn(Map.of("mail", "admin@flashstock.com"));
+        when(principal.getAttributes()).thenReturn(Map.of("mail", "aron83353@gmail.com"));
 
-        ApiResponse<AdminMetricsResponse> response = controller.metrics(authentication);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.metrics(authentication));
 
-        assertEquals(metrics, response.getData());
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        verifyNoInteractions(metricsService);
     }
 
     @Test

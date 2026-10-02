@@ -12,10 +12,18 @@ export async function GET() {
   const state = randomBytes(32).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
+  let origin: string;
+  try { origin = siteOrigin(); }
+  catch {
+    return NextResponse.json(
+      {message:'FLASHSTOCK_SITE_URL inválida. Configure el origen HTTPS del dominio real en Vercel y vuelva a desplegar.'},
+      {status:503, headers:{'Cache-Control':'no-store'}}
+    );
+  }
   const endpoint = new URL('/oauth2/authorize',domain);
   endpoint.searchParams.set('response_type','code');
   endpoint.searchParams.set('client_id',clientId);
-  endpoint.searchParams.set('redirect_uri',`${siteOrigin()}/auth/callback`);
+  endpoint.searchParams.set('redirect_uri',`${origin}/auth/callback`);
   endpoint.searchParams.set('scope','openid email profile');
   endpoint.searchParams.set('state',state);
   endpoint.searchParams.set('code_challenge_method','S256');

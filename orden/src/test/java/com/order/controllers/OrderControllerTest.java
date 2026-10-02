@@ -48,8 +48,9 @@ class OrderControllerTest {
         ReflectionTestUtils.setField(
                 controller,
                 "adminEmail",
-                "admin@flashstock.com"
+                "aron83353@gmail.com"
         );
+        ReflectionTestUtils.setField(controller, "legacyAdminEmailEnabled", false);
     }
 
     // =========================================================
@@ -192,33 +193,16 @@ class OrderControllerTest {
     }
 
     // =========================================================
-    // TEST: ADMINISTRADOR POR EMAIL
+    // TEST: EMAIL CONFIGURADO SIN ROLE_ADMIN DEBE SER RECHAZADO
     // =========================================================
 
     @Test
-    void getCustomerShippingAllowsAdminByEmail() {
-
-        List<OrderCustomerShippingResponse> rows =
-                List.of(sampleCustomerShipping());
-
-        when(service.findCustomerOrderShipping("proceso"))
-                .thenReturn(rows);
-
-        Authentication authentication =
-                authWithEmail(
-                        "admin@flashstock.com",
-                        false
-                );
-
-        var response = controller.getCustomerShipping(
-                authentication,
-                "proceso"
-        );
-
-        assertEquals(
-                rows,
-                response.getBody().getData()
-        );
+    void getCustomerShippingRejectsConfiguredEmailWithoutAdminRole() {
+        Authentication authentication = authWithEmail("aron83353@gmail.com", false);
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.getCustomerShipping(authentication, "proceso"));
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        verifyNoInteractions(service);
     }
 
     // =========================================================

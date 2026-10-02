@@ -193,58 +193,7 @@
         sendReceiptEmail: (payload) => requestJson(`${API_BASE}/api/receipts/send-email`, { method: 'POST', body: JSON.stringify(payload) })
     };
 
-    /*const FlashStockApi = {
-        // PUERTO 8081: AUTH
-        getCurrentUser: () => requestJson(`http://localhost:8081/api/auth/me`),
-        getAdminMetrics: () => requestJson(`http://localhost:8081/api/admin/metrics`),
-
-        // PUERTO 8082: INVENTORY
-        listInventory: () => requestJson(`http://localhost:8082/api/inventory`),
-        listInventoryRealtime: () => requestJson(`http://localhost:8082/api/inventory/realtime`),
-        getInventoryBySku: (sku) => requestJson(`http://localhost:8082/api/inventory/${encodeURIComponent(sku)}`),
-        createInventory: (payload) => requestJson(`http://localhost:8082/api/inventory`, { method: 'POST', body: JSON.stringify(payload) }),
-        updateInventoryQuantity: (sku, quantity) => requestJson(`http://localhost:8082/api/inventory/${encodeURIComponent(sku)}/quantity/${quantity}`, { method: 'PATCH' }),
-
-        // PUERTO 8083: ORDERS
-        listOrders: () => requestJson(`http://localhost:8083/api/orders`),
-        getOrderByNumber: (orderNumber) => requestJson(`http://localhost:8083/api/orders/${encodeURIComponent(orderNumber)}`),
-        createOrder: (payload) => requestJson(`http://localhost:8083/api/orders`, { method: 'POST', body: JSON.stringify(payload) }),
-        getMyOrderHistory: (status) => {
-            const suffix = status ? `?status=${encodeURIComponent(status)}` : '';
-            return requestJson(`http://localhost:8083/api/orders/my-history${suffix}`);
-        },
-        getCustomerShipping: (status) => {
-            const suffix = status ? `?status=${encodeURIComponent(status)}` : '';
-            return requestJson(`http://localhost:8083/api/orders/customer-shipping${suffix}`);
-        },
-        updateOrderStatus: (orderNumber, status) => requestJson(`http://localhost:8083/api/orders/${encodeURIComponent(orderNumber)}/status/${encodeURIComponent(status)}`, { method: 'PATCH' }),
-
-        // PUERTO 8083: RECEIPTS
-        getReceiptFromOrders: (orderNumbersCsv) => requestJson(`http://localhost:8083/api/receipts/from-orders?orderNumbers=${encodeURIComponent(orderNumbersCsv)}`),
-        sendReceiptEmail: (payload) => requestJson(`http://localhost:8083/api/receipts/send-email`, { method: 'POST', body: JSON.stringify(payload) }),
-
-        // PUERTO 8084: SHIPPING
-        listShipping: () => requestJson(`http://localhost:8084/api/shipping`),
-        getShippingByTracking: (trackingNumber) => requestJson(`http://localhost:8084/api/shipping/${encodeURIComponent(trackingNumber)}`),
-        getShippingTracking: (trackingNumber) => requestJson(`http://localhost:8084/api/shipping/tracking/${encodeURIComponent(trackingNumber)}`),
-        updateTrackingLive: (trackingNumber, payload) => requestJson(`http://localhost:8084/api/shipping/tracking/${encodeURIComponent(trackingNumber)}/live`, { method: 'PATCH', body: JSON.stringify(payload) }),
-        createShipping: (payload) => requestJson(`http://localhost:8084/api/shipping`, { method: 'POST', body: JSON.stringify(payload) }),
-        updateShippingStatus: (trackingNumber, status) => requestJson(`http://localhost:8084/api/shipping/${encodeURIComponent(trackingNumber)}/status/${encodeURIComponent(status)}`, { method: 'PATCH' }),
-
-        // PUERTO 8084: MAPS
-        getMapsConfig: () => requestJson(`http://localhost:8084/api/maps/config`),
-
-        // PUERTO 8084: CART
-        getCart: () => requestJson(`http://localhost:8084/api/cart`),
-        syncCart: (items) => requestJson(`http://localhost:8084/api/cart/sync`, { method: 'PUT', body: JSON.stringify(items) }),
-
-        // PUERTO 8084: PAYMENTS
-        getGooglePayConfig: () => requestJson(`http://localhost:8084/api/payments/google-pay/config`),
-        authorizeGooglePayPayment: (payload) => requestJson(`http://localhost:8084/api/payments/google-pay/authorize`, { method: 'POST', body: JSON.stringify(payload) }),
-
-        // PUERTO 8084: COUPONS
-        validateCoupon: (code, subtotal) => requestJson(`http://localhost:8084/api/coupons/${encodeURIComponent(code)}/validate?subtotal=${encodeURIComponent(subtotal)}`)
-    };*/
+    /* Legacy localhost API client removed; requests use the same-origin Next.js BFF above. */
 
     window.FlashStockApi = FlashStockApi;
 
@@ -2720,7 +2669,7 @@
 
         logoutLink = document.createElement('a');
         logoutLink.id = 'navbarLogoutLink';
-        logoutLink.href = '/logout';
+        logoutLink.href = '/auth/logout';
         logoutLink.className = 'btn border border-secondary rounded-pill px-3 text-primary me-3 my-auto';
         logoutLink.innerHTML = '<i class="fas fa-sign-out-alt me-2"></i>Cerrar sesion';
         logoutLink.style.display = 'none';
@@ -2750,7 +2699,7 @@
                 }
                 logoutLink.style.display = 'inline-flex';
             } else {
-                userLink.href = '/static/login.html';
+                userLink.href = '/login';
                 userLink.title = 'Iniciar sesion';
                 if (icon) {
                     icon.className = 'fas fa-user fa-2x';
@@ -2759,7 +2708,7 @@
             }
         } catch {
             currentSession = null;
-            userLink.href = '/static/login.html';
+            userLink.href = '/login';
             userLink.title = 'Iniciar sesion';
             if (icon) {
                 icon.className = 'fas fa-user fa-2x';

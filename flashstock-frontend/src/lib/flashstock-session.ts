@@ -10,14 +10,20 @@ export type FlashStockSession = {
 };
 
 export function siteOrigin(): string {
-  const configured = process.env.FLASHSTOCK_SITE_URL;
-  if (!configured && process.env.VERCEL) throw new Error('Falta FLASHSTOCK_SITE_URL en Vercel');
-  const value = configured?.replace(/\/$/, '') || 'http://localhost:3000';
-  const parsed = new URL(value);
-  if ((process.env.VERCEL || process.env.NODE_ENV === 'production') && parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
-    throw new Error('FLASHSTOCK_SITE_URL debe ser HTTPS en producción');
+  const configured = process.env.FLASHSTOCK_SITE_URL?.trim();
+  const hosted = Boolean(process.env.VERCEL || process.env.NODE_ENV === 'production');
+  if (!configured && hosted) {
+    throw new Error('FLASHSTOCK_SITE_URL debe ser el dominio HTTPS real de Vercel');
   }
-  if (parsed.pathname !== '/' || parsed.search || parsed.hash) throw new Error('FLASHSTOCK_SITE_URL debe ser solo el origen');
+  const raw = configured || 'http://localhost:3000';
+  const parsed = new URL(raw);
+  if (parsed.pathname !== '/' || parsed.search || parsed.hash || parsed.username || parsed.password) {
+    throw new Error('FLASHSTOCK_SITE_URL debe contener solo el origen');
+  }
+  if (hosted && (parsed.protocol !== 'https:' || ['localhost','127.0.0.1','[::1]'].includes(parsed.hostname.toLowerCase()))) {
+    throw new Error('Producción no puede redirigir a localhost: configura FLASHSTOCK_SITE_URL con HTTPS real');
+  }
+  if (!['http:','https:'].includes(parsed.protocol)) throw new Error('Protocolo inválido');
   return parsed.origin;
 }
 

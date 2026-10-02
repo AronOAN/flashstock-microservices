@@ -1,0 +1,115 @@
+name: FlashStock Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "auth/**"
+      - "inventory/**"
+      - "orden/**"
+      - "shipping/**"
+      - "gateway/**"
+      - "docker-compose.yml"
+      - "flashstock-frontend/**"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  # -----------------------------------------------------------------
+  # 1. DEPLOY GATEWAY A GOOGLE CLOUD RUN
+  # -----------------------------------------------------------------
+  gateway-cloud-run:
+    name: Deploy Gateway to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      gateway_url: ${{ steps.deploy_gateway.outputs.gateway_url }}
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GATEWAY_SERVICE_NAME: ${{ secrets.GATEWAY_SERVICE_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy gateway
+        id: deploy_gateway
+        run: |
+          SERVICE_NAME="${GATEWAY_SERVICE_NAME:-flashstock-gateway}"
+          REGION="${GCP_REGION:-us-central1}"
+          gcloud config set project "$GCP_PROJECT_ID"
+          gcloud run deploy "$SERVICE_NAME" \
+            --source ./gateway \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --quiet
+          GATEWAY_URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" --format='value(status.url)')
+          echo "gateway_url=$GATEWAY_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Print public URL
+        run: echo "Gateway public URL: ${{ steps.deploy_gateway.outputs.gateway_url }}"
+
+  # -----------------------------------------------------------------
+  # 2. DEPLOY FRONTEND A VERCEL (NEXT.JS + PNPM)
+  # -----------------------------------------------------------------
+  frontend-vercel:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    needs: gateway-cloud-run
+    defaults:
+      run:
+        working-directory: flashstock-frontend
+    env:
+      FLASHSTOCK_API_BASE_URL: ${{ needs.gateway-cloud-run.outputs.gateway_url }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: flashstock-frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Inject runtime API base
+        run: |
+          printf 'window.FLASHSTOCK_API_BASE = "%s";\n' "$FLASHSTOCK_API_BASE_URL" > public/runtime-config.js
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: flashstock-frontend
+          vercel-args: --prod --build-env NEXT_PUBLIC_API_URL=${{ needs.gateway-cloud-run.outputs.gateway_url }}

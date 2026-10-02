@@ -1,0 +1,239 @@
+services:
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: flashstock-gateway
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      compras-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+
+
+    auth-db:
+    image: postgres:16
+    container_name: flashstock-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: flashstock
+      POSTGRES_PASSWORD: flashstock
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashstock -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+      
+    inve-db:
+    image: postgres:16
+    container_name: flashstock-inve-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inve_db
+      POSTGRES_USER: flashstock
+      POSTGRES_PASSWORD: flashstock
+    volumes:
+      - inve_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashstock -d inve_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    orden-db:
+    image: postgres:16
+    container_name: flashstock-orden-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orden_db
+      POSTGRES_USER: flashstock
+      POSTGRES_PASSWORD: flashstock
+    volumes:
+      - orden_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashstock -d orden_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  compras-db:
+    image: postgres:16
+    container_name: flashstock-compras-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: compras_db
+      POSTGRES_USER: flashstock
+      POSTGRES_PASSWORD: flashstock
+    volumes:
+      - compras_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashstock -d compras_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+      
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: flashstock-auth
+    restart: unless-stopped
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    environment:
+      PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: flashstock
+      SPRING_DATASOURCE_PASSWORD: flashstock
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      ADMIN_EMAIL: aron83353@gmail.com
+      ADMIN_EMAIL_2: al.zegers@gmail.com
+      CASHFLOW_UNIT_VALUE: "12.5"
+      GOOGLE_CLIENT_ID: disabled-google-client-id
+      GOOGLE_CLIENT_SECRET: disabled-google-client-secret
+    ports:
+      - "8081:8081"
+      
+  inve-service:
+    build:
+      context: ./inve
+      dockerfile: Dockerfile
+    container_name: flashstock-inve
+    restart: unless-stopped
+    depends_on:
+      inve-db:
+        condition: service_healthy
+    environment:
+      PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://inve-db:5432/inve_db
+      SPRING_DATASOURCE_USERNAME: flashstock
+      SPRING_DATASOURCE_PASSWORD: flashstock
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      ADMIN_EMAIL: aro.acevedo@duocuc.cl
+      ADMIN_EMAIL_2: al.zegers@duocuc.cl
+      CASHFLOW_UNIT_VALUE: "12.5"
+      GOOGLE_CLIENT_ID: disabled-google-client-id
+      GOOGLE_CLIENT_SECRET: disabled-google-client-secret
+    ports:
+      - "8082:8082"
+
+  orden-service:
+    build:
+      context: ./orden
+      dockerfile: Dockerfile
+    container_name: flashstock-orden
+    restart: unless-stopped
+    depends_on:
+      orden-db:
+        condition: service_healthy
+    environment:
+      PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-db:5432/orden_db
+      SPRING_DATASOURCE_USERNAME: flashstock
+      SPRING_DATASOURCE_PASSWORD: flashstock
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      ADMIN_EMAIL: aro.acevedo@duocuc.cl
+      ADMIN_EMAIL_2: al.zegers@duocuc.cl
+      CASHFLOW_UNIT_VALUE: "12.5"
+      GOOGLE_CLIENT_ID: disabled-google-client-id
+      GOOGLE_CLIENT_SECRET: disabled-google-client-secret
+    ports:
+      - "8083:8083"
+  
+  compras-service:
+    build:
+      context: ./compras
+      dockerfile: Dockerfile
+    container_name: flashstock-compras
+    restart: unless-stopped
+    depends_on:
+      compras-db:
+        condition: service_healthy
+    environment:
+      PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://compras-db:5432/compras_db
+      SPRING_DATASOURCE_USERNAME: flashstock
+      SPRING_DATASOURCE_PASSWORD: flashstock
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      ADMIN_EMAIL: aro.acevedo@duocuc.cl
+      ADMIN_EMAIL_2: al.zegers@duocuc.cl
+      CASHFLOW_UNIT_VALUE: "12.5"
+      GOOGLE_CLIENT_ID: disabled-google-client-id
+      GOOGLE_CLIENT_SECRET: disabled-google-client-secret
+      MAIL_PROVIDER: gmail
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: "465"
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+    ports:
+      - "8084:8084"
+      
+      
+    #define los serivcios que se ejecutaran que en este caso se llama JAVA
+  java:
+    build:
+    #especifica la ubicacion del archivo dockerfile
+			
+      context: 
+     # nombre del archivo dockerfile
+      dockerfile: Dockerfile
+		#puertos que utilizara el servicio
+    ports: 
+      - "8085:8085"
+    depends_on:
+			# Espera que el servicio de bd esté activo y responda correctamente el healthckeck
+    mysql:
+      condition: service_healthy
+		# Especifica el comando que se ejecutara dentero del contenedor
+    command: ["java","-jar","app.jar"]
+      volumes: 
+        - java_data:/app/data
+      deploy:
+      resource:
+        limits:
+					#Maximo uso de memori apara el serivico JAVA
+          memory: 1G
+					#maximo un nucleo completo de CPU
+          cpus: "1.0"
+        reservations:
+					#Memoria reservada para el serivcio JAVA
+          memory: 512M
+					#Reserva medio nucleo de CPU
+          cpus: "0.5"
+      
+    
+
+
+
+volumes:
+  auth_postgres_data:
+  inve_postgres_data:
+  orden_postgres_data:
+  compra_postgres_data:		
+  java_data:

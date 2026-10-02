@@ -174,7 +174,6 @@ jobs:
 
       - name: Run SonarCloud on each Java module
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           for service in auth gateway inventory orden shipping; do

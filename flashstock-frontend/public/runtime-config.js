@@ -1,1 +1,1 @@
-window.FLASHSTOCK_API_BASE = "http://localhost:8080";
+window.FLASHSTOCK_API_BASE = "";

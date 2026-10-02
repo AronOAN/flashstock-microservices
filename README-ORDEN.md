@@ -1,5 +1,7 @@
 # FlashStock · Orden (staged private AWS deployment)
 
+> Documento histórico de la fase privada. La corrección de `customer_sub` y del controlador de Orden está en este paquete; lee `CAMBIOS-SEGURIDAD-LOGIN.md` para las instrucciones actuales. Las rutas públicas de Orden siguen deshabilitadas.
+
 This patch is based on the actual Terraform Inventory files in `flashstock-auth-terraform-context.tar.gz`, the previously delivered Auth Terraform patch, and the Orden Java repository files reviewed for this handoff. It does not include `.tfvars`, `.tfstate`, credentials, new IAM roles, a new ALB, RDS, VPC, Cognito, API Gateway, or public Orden routes.
 
 **Important security blocker:** In the current Java implementation `GET /api/orders/{orderNumber}` is merely `authenticated()` and does not check the order owner; `POST /api/orders` trusts a user-provided `customerEmail` when nonempty; Cognito access tokens do not guarantee an `email` claim, which current customer history/receipt code expects. Therefore **do not add ANY public API Gateway route to Orden** until customer identity/ownership is fixed, retested, and an updated image is published. The internal ALB listener rule is private and cannot be used directly from the public Internet; only specific API Gateway routes determine external exposure. Receipt email sending should also validate recipients against server-generated order data and use an explicitly configured SMTP secret before activation.

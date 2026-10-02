@@ -15,6 +15,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -35,8 +37,10 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse create(OrderRequest request) {
-        String normalizedCustomerEmail = normalizeEmail(request.getCustomerEmail());
+    public OrderResponse create(OrderRequest request, String customerSub, String verifiedEmail) {
+        if (customerSub == null || customerSub.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
         Inventory inventory = resolveInventoryForUpdate(request.getInventoryId(), request.getSku());
         if (inventory == null) {
             throw new IllegalArgumentException("No existe inventario para SKU: " + request.getSku());
@@ -71,7 +75,8 @@ public class OrderService {
                 .quantity(request.getQuantity())
                 .customerFirstName(request.getCustomerFirstName())
                 .customerLastName(request.getCustomerLastName())
-                .customerEmail(normalizedCustomerEmail)
+                .customerSub(customerSub)
+                .customerEmail(verifiedEmail)
                 .shippingAddress(request.getShippingAddress())
                 .status("proceso")
                 .createdAt(LocalDateTime.now())
@@ -91,12 +96,17 @@ public class OrderService {
         throw new IllegalStateException("No fue posible generar un orderNumber unico. Intenta nuevamente.");
     }
 
-    public OrderResponse findByOrderNumber(String orderNumber) {
-        CustomerOrder order = dao.findByOrderNumber(orderNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe pedido: " + orderNumber));
+    public OrderResponse findByOrderNumber(String orderNumber, String customerSub, boolean admin) {
+        if (customerSub == null || customerSub.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        CustomerOrder order = (admin ? dao.findByOrderNumber(orderNumber)
+                : dao.findByOrderNumberAndCustomerSub(orderNumber, customerSub))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
         return toResponse(order);
     }
 
+    @Transactional
     public OrderResponse updateStatus(String orderNumber, String status) {
         CustomerOrder order = dao.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("No existe pedido: " + orderNumber));
@@ -126,18 +136,14 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse confirmReceived(String orderNumber, String requesterEmail) {
-        CustomerOrder order = dao.findByOrderNumber(orderNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe pedido: " + orderNumber));
-
-        if (requesterEmail == null || requesterEmail.isBlank()) {
-            throw new IllegalArgumentException("Debes iniciar sesion para confirmar la recepcion del pedido");
+    public OrderResponse confirmReceived(String orderNumber, String customerSub) {
+        if (customerSub == null || customerSub.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
-
-        String orderEmail = order.getCustomerEmail() == null ? "" : order.getCustomerEmail().trim().toLowerCase();
-        String requester = requesterEmail.trim().toLowerCase();
-        if (!orderEmail.equals(requester)) {
-            throw new IllegalStateException("No puedes confirmar pedidos de otro cliente");
+        CustomerOrder order = dao.lockOwnedOrder(orderNumber, customerSub)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+        if (!"enviado".equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El pedido aun no puede confirmarse");
         }
 
         order.setStatus("completado");
@@ -153,13 +159,11 @@ public class OrderService {
         return toResponse(order);
     }
 
-                public List<OrderCustomerShippingResponse> findMyOrderHistory(String email, String status) {
-                String normalizedEmail = normalizeEmail(email);
-                if (normalizedEmail == null) {
-                    return List.of();
+    public List<OrderCustomerShippingResponse> findMyOrderHistory(String customerSub, String status) {
+                if (customerSub == null || customerSub.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN);
                 }
-
-                return dao.findCustomerOrderShippingByEmail(normalizedEmail, status).stream()
+                return dao.findCustomerOrderShippingBySub(customerSub, status).stream()
                     .map(row -> OrderCustomerShippingResponse.builder()
                         .orderId(row.getOrderId())
                         .orderNumber(row.getOrderNumber())
@@ -174,14 +178,6 @@ public class OrderService {
                         .build())
                     .toList();
                 }
-
-    private String normalizeEmail(String email) {
-        if (email == null) {
-            return null;
-        }
-        String normalized = email.trim().toLowerCase();
-        return normalized.isBlank() ? null : normalized;
-    }
 
     private OrderResponse toResponse(CustomerOrder order) {
         return OrderResponse.builder()

@@ -1,59 +1,51 @@
 package com.order.controllers;
 
 import com.order.common.ApiResponse;
-import com.order.common.AuthEmailResolver;
+import com.order.common.VerifiedCustomer;
 import com.order.dtos.OrderCustomerShippingResponse;
 import com.order.dtos.OrderRequest;
 import com.order.dtos.OrderResponse;
 import com.order.services.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.CrossOrigin;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 @RequiredArgsConstructor
 public class OrderController {
     private final OrderService service;
 
-    @Value("${app.security.admin-email:}")
-    private String adminEmail;
-
-    @Value("${app.security.legacy-admin-email-enabled:false}")
-    private boolean legacyAdminEmailEnabled;
-
     @GetMapping
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getAll() {
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getAll(Authentication authentication) {
+        requireAdmin(authentication);
         return ResponseEntity.ok(ApiResponse.<List<OrderResponse>>builder().message("Pedidos listados").data(service.findAll()).build());
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> create(@Valid @RequestBody OrderRequest request, Authentication authentication) {
-        String email = AuthEmailResolver.resolve(authentication);
-        if ((request.getCustomerEmail() == null || request.getCustomerEmail().isBlank()) && email != null) {
-            request.setCustomerEmail(email);
-        }
-
-        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder().message("Pedido creado").data(service.create(request)).build());
+        String customerSub = VerifiedCustomer.sub(authentication);
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder().message("Pedido creado")
+                .data(service.create(request, customerSub, VerifiedCustomer.verifiedEmail(authentication))).build());
     }
 
     @GetMapping("/{orderNumber}")
-    public ResponseEntity<ApiResponse<OrderResponse>> getByOrderNumber(@PathVariable String orderNumber) {
-        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder().message("Pedido encontrado").data(service.findByOrderNumber(orderNumber)).build());
+    public ResponseEntity<ApiResponse<OrderResponse>> getByOrderNumber(@PathVariable String orderNumber, Authentication authentication) {
+        String customerSub = VerifiedCustomer.sub(authentication);
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder().message("Pedido encontrado")
+                .data(service.findByOrderNumber(orderNumber, customerSub, VerifiedCustomer.isAdmin(authentication))).build());
     }
 
     @PatchMapping("/{orderNumber}/status/{status}")
-    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable String orderNumber, @PathVariable String status) {
+    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable String orderNumber, @PathVariable String status,
+                                                                    Authentication authentication) {
+        requireAdmin(authentication);
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder().message("Estado actualizado").data(service.updateStatus(orderNumber, status)).build());
     }
 
@@ -62,9 +54,7 @@ public class OrderController {
             Authentication authentication,
             @RequestParam(required = false) String status
     ) {
-        if (!isAdmin(authentication)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administrador");
-        }
+        requireAdmin(authentication);
 
         return ResponseEntity.ok(ApiResponse.<List<OrderCustomerShippingResponse>>builder()
                 .message("Pedido + envio + cliente")
@@ -77,14 +67,11 @@ public class OrderController {
             Authentication authentication,
             @RequestParam(required = false) String status
     ) {
-        String email = AuthEmailResolver.resolve(authentication);
-        if (email == null) {
-            throw new IllegalArgumentException("Debes iniciar sesion para ver tu historial");
-        }
+        String customerSub = VerifiedCustomer.sub(authentication);
 
         return ResponseEntity.ok(ApiResponse.<List<OrderCustomerShippingResponse>>builder()
                 .message("Mis pedidos")
-                .data(service.findMyOrderHistory(email, status))
+                .data(service.findMyOrderHistory(customerSub, status))
                 .build());
     }
 
@@ -93,33 +80,17 @@ public class OrderController {
             Authentication authentication,
             @PathVariable String orderNumber
     ) {
-        String email = AuthEmailResolver.resolve(authentication);
-        if (email == null) {
-            throw new IllegalArgumentException("Debes iniciar sesion para confirmar la recepcion");
-        }
+        String customerSub = VerifiedCustomer.sub(authentication);
 
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .message("Pedido confirmado como recibido")
-                .data(service.confirmReceived(orderNumber, email))
+                .data(service.confirmReceived(orderNumber, customerSub))
                 .build());
     }
 
-    private boolean isAdmin(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
+    private void requireAdmin(Authentication authentication) {
+        if (!VerifiedCustomer.isAdmin(authentication)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo administrador");
         }
-
-        boolean byRole = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch("ROLE_ADMIN"::equals);
-        if (byRole) {
-            return true;
-        }
-
-        String email = AuthEmailResolver.resolve(authentication);
-        return legacyAdminEmailEnabled && adminEmail != null
-                && !adminEmail.isBlank()
-                && email != null
-                && email.equalsIgnoreCase(adminEmail);
     }
 }

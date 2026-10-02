@@ -33,9 +33,8 @@ resource "aws_cognito_user_pool" "flashstock" {
   }
 }
 
-# Cliente público sin secreto. En esta fase solo se prepara Cognito y el authorizer.
-# El flujo OAuth Authorization Code + PKCE y el dominio de login se añaden después
-# de conocer el callback HTTPS real de Vercel y de implementar su página callback.
+# Cliente público sin secreto. El formulario propio llama a InitiateAuth desde Next.js;
+# Cognito valida la contraseña y emite el Access Token con sus grupos.
 resource "aws_cognito_user_pool_client" "frontend" {
   name                                 = "${var.project_name}-${var.environment}-frontend"
   user_pool_id                         = aws_cognito_user_pool.flashstock.id
@@ -54,6 +53,7 @@ resource "aws_cognito_user_pool_client" "frontend" {
 
   explicit_auth_flows = [
     "ALLOW_USER_SRP_AUTH",
+    "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH"
   ]
 

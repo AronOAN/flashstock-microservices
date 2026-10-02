@@ -4,6 +4,7 @@ No importa automáticamente recursos sin ownership verificado, no comparte recur
 """
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -14,6 +15,40 @@ EXPECTED_ACCOUNT = os.getenv('FLASHSTOCK_EXPECTED_ACCOUNT', '823102413975')
 
 class AWSFailure(RuntimeError):
     pass
+
+ADMIN_SCOPE = ['aws.cognito.signin.user.admin']
+INVENTORY_GET = {'GET /api/inventory', 'GET /api/inventory/{proxy+}'}
+PROTECTED_ROUTES = {'GET /api/auth/me', 'GET /api/admin/metrics',
+                    'POST /api/inventory', 'ANY /api/inventory/{proxy+}'} | INVENTORY_GET
+
+def allowed_login_update(resource):
+    """Only the Cognito password flow and exact existing JWT routes may change."""
+    change = resource['change']
+    old, new = change.get('before') or {}, change.get('after') or {}
+    address = resource['address']
+    if address == 'aws_cognito_user_pool_client.frontend':
+        previous = set(old.get('explicit_auth_flows') or [])
+        expected = previous | {'ALLOW_USER_PASSWORD_AUTH'}
+        if 'ALLOW_USER_PASSWORD_AUTH' in previous or set(new.get('explicit_auth_flows') or []) != expected:
+            return False
+        allowed = {'explicit_auth_flows'}
+    else:
+        match = re.fullmatch(r'aws_apigatewayv2_route\.(auth|inventory)\["(.+)"\]', address)
+        if not match or match.group(2) not in PROTECTED_ROUTES:
+            return False
+        route = match.group(2)
+        if match.group(1) != ('auth' if route.startswith(('GET /api/auth/', 'GET /api/admin/')) else 'inventory'):
+            return False
+        if new.get('route_key') != route or new.get('authorization_type') != 'JWT' or new.get('authorization_scopes') != ADMIN_SCOPE:
+            return False
+        if route in INVENTORY_GET:
+            if old.get('authorization_type') != 'NONE': return False
+            allowed = {'authorization_type', 'authorizer_id', 'authorization_scopes'}
+        else:
+            if old.get('authorization_type') != 'JWT' or old.get('authorization_scopes') != ['openid']:
+                return False
+            allowed = {'authorization_scopes'}
+    return all(old.get(key) == new.get(key) for key in old.keys() | new.keys() if key not in allowed)
 
 class AWS:
     def __init__(self, region): self.region = region
@@ -178,12 +213,15 @@ def main(plan, aws=None):
     domain=aws.get('cognito-idp','describe-user-pool-domain','--domain',EXPECTED_DOMAIN)
     if (domain.get('DomainDescription') or {}).get('UserPoolId') != EXPECTED_POOL: raise AWSFailure('Dominio Cognito inexistente o asignado a otro User Pool.')
     changes=plan.get('resource_changes',[])
-    conflict=[]; created=0
+    conflict=[]; created=0; updated=0
     for r in changes:
         a=r.get('change',{}).get('actions',[])
         if 'delete' in a: raise AWSFailure(f'{r["address"]}: plan incluye destroy/reemplazo ({a}). No se aplica.')
         if 'update' in a and r.get('mode') == 'managed':
-            raise AWSFailure(f'{r["address"]}: plan incluye una modificacion de recurso EXISTENTE ({a}). Revisa y reconcilia el cambio antes de desplegar la foundation.')
+            if a != ['update'] or not allowed_login_update(r):
+                raise AWSFailure(f'{r["address"]}: actualizacion fuera de los cambios exactos de login y JWT ({a}).')
+            updated+=1
+            continue
         if 'create' not in a: continue
         created+=1
         if r.get('mode')!='managed':continue
@@ -193,8 +231,8 @@ def main(plan, aws=None):
         lines=['Se encontraron recursos YA EXISTENTES EN AWS pero NO administrados bajo estas direcciones del estado:',*('  '+a+' => '+str(i) for a,i in conflict),
         'No se recrearán ni se importarán a ciegas. Comprueba propiedad y utiliza terraform import DIRECCION ID; vuelve a ejecutar safe-apply.sh.']
         raise AWSFailure('\n'.join(lines))
-    print(f'OK: cuenta {EXPECTED_ACCOUNT}, API/Pool/dominio verificados, {created} creaciones planificadas sin colisiones detectadas entre identidades verificables; 0 destroys.')
-    if not created: print('El recurso que ya está en el state se reutiliza sin crear una segunda instancia.')
+    print(f'OK: cuenta {EXPECTED_ACCOUNT}, API/Pool/dominio verificados, {created} creaciones, {updated} actualizaciones de login/JWT permitidas; 0 destroys.')
+    if not created and not updated: print('El recurso que ya está en el state se reutiliza sin crear una segunda instancia.')
     return 0
 
 if __name__=='__main__':

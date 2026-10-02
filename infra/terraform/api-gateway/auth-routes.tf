@@ -30,5 +30,5 @@ resource "aws_apigatewayv2_route" "auth" {
   target               = "integrations/${aws_apigatewayv2_integration.auth[0].id}"
   authorization_type   = each.value ? "JWT" : "NONE"
   authorizer_id        = each.value ? aws_apigatewayv2_authorizer.cognito.id : null
-  authorization_scopes = each.value ? ["openid"] : null
+  authorization_scopes = each.value ? ["aws.cognito.signin.user.admin"] : null
 }

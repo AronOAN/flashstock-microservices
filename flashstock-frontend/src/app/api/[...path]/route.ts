@@ -20,9 +20,15 @@ async function proxy(req:NextRequest,ctx:Context):Promise<NextResponse> {
     if (!origin || origin !== siteOrigin()) return json(403,'Origen no autorizado');
   }
   const path=`/api/${segments.map(encodeURIComponent).join('/')}`;
+  // Keep all order-related APIs unpublished until backend ownership and shipping checks pass.
+  if (['orders','receipts','shipping'].includes(segments[0])
+      && process.env.FLASHSTOCK_ORDER_ROUTES_ENABLED !== 'true') {
+    return json(503,'Pedidos temporalmente no disponibles');
+  }
+  if (path === '/api/receipts/send-email') return json(404,'Ruta no disponible');
   const session=await getSession();
   if (path==='/api/auth/providers' && req.method==='GET') return json(200,'Proveedores',{
-    google:false,microsoft:false,cognito:!!process.env.COGNITO_DOMAIN
+    google:false,microsoft:false,cognito:!!(process.env.COGNITO_ISSUER_URL && process.env.COGNITO_APP_CLIENT_ID)
   });
   if (path==='/api/auth/me' && req.method==='GET' && !session) return anonymous();
   const base=process.env.FLASHSTOCK_API_BASE_URL;

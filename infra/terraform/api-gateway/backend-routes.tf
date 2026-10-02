@@ -2,8 +2,8 @@
 # Activa enable_inventory_routes cuando el target ECS aparezca healthy y schema migrate tenga exitCode=0.
 locals {
   inventory_route_auth = {
-    "GET /api/inventory"          = false
-    "GET /api/inventory/{proxy+}" = false
+    "GET /api/inventory"          = true
+    "GET /api/inventory/{proxy+}" = true
     "POST /api/inventory"         = true
     "ANY /api/inventory/{proxy+}" = true
   }
@@ -30,5 +30,5 @@ resource "aws_apigatewayv2_route" "inventory" {
   target               = "integrations/${aws_apigatewayv2_integration.inventory[0].id}"
   authorization_type   = each.value ? "JWT" : "NONE"
   authorizer_id        = each.value ? aws_apigatewayv2_authorizer.cognito.id : null
-  authorization_scopes = each.value ? ["openid"] : null
+  authorization_scopes = each.value ? ["aws.cognito.signin.user.admin"] : null
 }

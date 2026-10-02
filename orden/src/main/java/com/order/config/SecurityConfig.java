@@ -28,25 +28,23 @@ public class SecurityConfig {
             // Existing frontend flow posts to public APIs without CSRF token.
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
+                // Local OAuth2 identities cannot claim Cognito-owned orders.
+                .requestMatchers("/api/orders", "/api/orders/**", "/api/receipts/**").denyAll()
                 .requestMatchers("/admin/**").permitAll()
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers("/api/cart/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/orders/my-history").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/shipping").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/shipping/tracking/**", "/api/shipping/*").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/shipping/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/shipping/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/payments/google-pay/config", "/api/payments/deuna/config").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/payments/google-pay/authorize", "/api/payments/deuna/attempts", "/api/payments/deuna/webhook").permitAll()
                 .requestMatchers("/api/payments/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/receipts/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/receipts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/inventory/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/inventory/**", "/api/shipping/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/inventory/**", "/api/shipping/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/inventory/**", "/api/shipping/**").hasRole("ADMIN")
                 .requestMatchers(
                     "/",
                     "/index.html",

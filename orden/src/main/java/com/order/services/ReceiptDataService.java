@@ -26,8 +26,11 @@ public class ReceiptDataService {
     private final InventoryDao inventoryDao;
     private final ShipmentDao shipmentDao;
 
-    public ReceiptEmailRequest buildFromOrderNumbers(List<String> orderNumbers, String authenticatedEmail) {
-        if (orderNumbers == null || orderNumbers.isEmpty()) {
+    public ReceiptEmailRequest buildFromOrderNumbers(List<String> orderNumbers, String customerSub) {
+        if (customerSub == null || customerSub.isBlank()
+                || orderNumbers == null || orderNumbers.isEmpty() || orderNumbers.size() > 20
+                || orderNumbers.stream().anyMatch(number -> number == null || number.isBlank())
+                || orderNumbers.stream().map(String::trim).distinct().count() != orderNumbers.size()) {
             throw new IllegalArgumentException("Debes indicar al menos un numero de pedido para generar boleta.");
         }
 
@@ -36,11 +39,8 @@ public class ReceiptDataService {
             if (orderNumber == null || orderNumber.isBlank()) {
                 continue;
             }
-            CustomerOrder order = orderDao.findByOrderNumber(orderNumber.trim())
-                    .orElseThrow(() -> new IllegalArgumentException("No existe pedido: " + orderNumber));
-            if (authenticatedEmail != null && !authenticatedEmail.isBlank() && order.getCustomerEmail() != null && !order.getCustomerEmail().equalsIgnoreCase(authenticatedEmail)) {
-                throw new IllegalArgumentException("No autorizado para consultar boleta del pedido: " + orderNumber);
-            }
+            CustomerOrder order = orderDao.findByOrderNumberAndCustomerSub(orderNumber.trim(), customerSub)
+                    .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
             orders.add(order);
         }
 

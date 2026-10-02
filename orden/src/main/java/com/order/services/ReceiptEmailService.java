@@ -15,11 +15,13 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Service
+@ConditionalOnProperty(name = "flashstock.receipts.email-enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class ReceiptEmailService {
 

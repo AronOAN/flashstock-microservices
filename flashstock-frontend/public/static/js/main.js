@@ -101,8 +101,6 @@
         || '';
     const CART_STORAGE_KEY = 'flashstock_cart_v2';
     const SHIPPING_ADDRESS_KEY = 'flashstock_shipping_address';
-    const RECEIPT_STORAGE_KEY = 'flashstock_last_receipt_v1';
-    const RECEIPT_SESSION_KEY = 'flashstock_last_receipt_session_v1';
     const CART_REFRESH_MS = 5000;
     const INVENTORY_REFRESH_MS = 3000;
     let inventoryEndpointUnavailable = false;
@@ -192,8 +190,7 @@
         getGooglePayConfig: () => requestJson(`${API_BASE}/api/payments/google-pay/config`),
         authorizeGooglePayPayment: (payload) => requestJson(`${API_BASE}/api/payments/google-pay/authorize`, { method: 'POST', body: JSON.stringify(payload) }),
         validateCoupon: (code, subtotal) => requestJson(`${API_BASE}/api/coupons/${encodeURIComponent(code)}/validate?subtotal=${encodeURIComponent(subtotal)}`),
-        getReceiptFromOrders: (orderNumbersCsv) => requestJson(`${API_BASE}/api/receipts/from-orders?orderNumbers=${encodeURIComponent(orderNumbersCsv)}`),
-        sendReceiptEmail: (payload) => requestJson(`${API_BASE}/api/receipts/send-email`, { method: 'POST', body: JSON.stringify(payload) })
+        getReceiptFromOrders: (orderNumbersCsv) => requestJson(`${API_BASE}/api/receipts/from-orders?orderNumbers=${encodeURIComponent(orderNumbersCsv)}`)
     };
 
     /* Legacy localhost API client removed; requests use the same-origin Next.js BFF above. */
@@ -1413,82 +1410,6 @@
         }
     }
 
-    function isValidReceiptPayload(receipt) {
-        if (!receipt || typeof receipt !== 'object') {
-            return false;
-        }
-
-        const hasHeader = Boolean(receipt.receiptNumber || receipt.createdAt || receipt.customerEmail);
-        const hasItems = Array.isArray(receipt.items) && receipt.items.length > 0;
-        const hasShipments = Array.isArray(receipt.shipments) && receipt.shipments.length > 0;
-
-        return hasHeader || hasItems || hasShipments;
-    }
-
-    function saveReceipt(receipt) {
-        if (!isValidReceiptPayload(receipt)) {
-            return;
-        }
-
-        const serialized = JSON.stringify(receipt);
-        localStorage.setItem(RECEIPT_STORAGE_KEY, serialized);
-        sessionStorage.setItem(RECEIPT_SESSION_KEY, serialized);
-    }
-
-    function loadReceipt() {
-        const localRaw = localStorage.getItem(RECEIPT_STORAGE_KEY);
-        const localReceipt = localRaw ? parseSafeJson(localRaw, null) : null;
-        if (isValidReceiptPayload(localReceipt)) {
-            return localReceipt;
-        }
-
-        const sessionRaw = sessionStorage.getItem(RECEIPT_SESSION_KEY);
-        const sessionReceipt = sessionRaw ? parseSafeJson(sessionRaw, null) : null;
-        if (isValidReceiptPayload(sessionReceipt)) {
-            localStorage.setItem(RECEIPT_STORAGE_KEY, JSON.stringify(sessionReceipt));
-            return sessionReceipt;
-        }
-
-        return null;
-    }
-
-    function generateReceiptNumber() {
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mi = String(now.getMinutes()).padStart(2, '0');
-        const ss = String(now.getSeconds()).padStart(2, '0');
-        return `BOL-${yyyy}${mm}${dd}-${hh}${mi}${ss}`;
-    }
-
-    function buildReceiptPayload(items, shipments, customer) {
-        const totals = calculateCartTotals(items);
-        return {
-            receiptNumber: generateReceiptNumber(),
-            createdAt: new Date().toISOString(),
-            customerFirstName: customer.firstName,
-            customerLastName: customer.lastName,
-            customerEmail: customer.email,
-            shippingAddress: customer.shippingAddress,
-            subtotal: Number(totals.subtotal || 0),
-            shipping: Number(totals.shipping || 0),
-            discount: Number(totals.discount || 0),
-            total: Number(totals.total || 0),
-            items: (items || []).map((item) => ({
-                inventoryId: item.id,
-                sku: item.sku,
-                productName: item.name,
-                quantity: Number(item.quantity || 0),
-                unitPrice: Number(item.unitPrice || 0),
-                lineTotal: Number(item.quantity || 0) * Number(item.unitPrice || 0),
-                orderNumber: item.orderNumber || ''
-            })),
-            shipments: shipments || []
-        };
-    }
-
     function renderCheckoutSummaryTable(items) {
         const body = document.getElementById('checkoutItemsBody');
         if (!body) {
@@ -1635,7 +1556,7 @@
         section.style.display = 'block';
         title.textContent = isAuthenticated
             ? 'Pagar y finalizar compra con Google Pay (usuario logueado).'
-            : 'Compra como invitado: completa el pago con Google Pay (modo prueba).';
+            : 'Inicia sesión para realizar un pedido.';
         amount.textContent = `Total a pagar: ${formatCurrency(totals.total)}`;
     }
 
@@ -1740,6 +1661,11 @@
     }
 
     async function processCheckoutWithGooglePay() {
+        if (!isAuthenticatedUser()) {
+            throw new Error('Inicia sesion antes de realizar un pago.');
+        }
+        // Do not authorize payment while Orden is unpublished or unavailable.
+        await FlashStockApi.getMyOrderHistory();
         const customer = getCheckoutCustomerData();
         validateCheckoutCustomer(customer);
 
@@ -1837,49 +1763,18 @@
             });
 
             container.appendChild(button);
-            setCheckoutGooglePayStatus('Usa Google Pay para pagar como invitado (modo TEST).', 'neutral');
+            setCheckoutGooglePayStatus('Google Pay disponible para usuarios autenticados.', 'neutral');
         } catch (error) {
             setCheckoutGooglePayStatus(`No se pudo inicializar Google Pay: ${error.message}`, 'error');
         }
     }
 
     async function completeCheckoutFlow(resultNode) {
-        if (!isAuthenticatedUser() && !checkoutPaymentState.guestPaymentApproved) {
-            throw new Error('Debes completar el pago con Google Pay para continuar como invitado.');
+        if (!isAuthenticatedUser()) {
+            throw new Error('Inicia sesion antes de realizar el pedido.');
         }
 
-        const checkoutItems = loadCart();
-        const customer = getCheckoutCustomerData();
         const created = await placeCheckoutOrders();
-        const shipments = created.map((entry) => ({
-            orderNumber: entry.orderNumber,
-            trackingNumber: entry.shippingTracking,
-            carrier: entry.carrier,
-            courierName: entry.courierName,
-            status: entry.shippingStatus,
-            eta: entry.shippingEta
-        }));
-        const itemsForReceipt = (Array.isArray(checkoutItems) && checkoutItems.length > 0)
-            ? checkoutItems.map((item) => {
-                const bySku = created.find((entry) => entry.sku === item.sku);
-                return {
-                    ...item,
-                    name: item.name || bySku?.productName || item.sku,
-                    unitPrice: Number(item.unitPrice || bySku?.unitPrice || 0),
-                    quantity: Number(item.quantity || bySku?.quantity || 0),
-                    orderNumber: bySku?.orderNumber || ''
-                };
-            })
-            : created.map((entry) => ({
-                id: entry.inventoryId,
-                sku: entry.sku,
-                name: entry.productName || entry.sku,
-                quantity: Number(entry.quantity || 0),
-                unitPrice: Number(entry.unitPrice || 0),
-                orderNumber: entry.orderNumber || ''
-            }));
-        const receiptPayload = buildReceiptPayload(itemsForReceipt, shipments, customer);
-        saveReceipt(receiptPayload);
 
         if (resultNode) {
             const last = created[created.length - 1];
@@ -1893,7 +1788,7 @@
         await syncCheckoutSummary();
         await refreshMyOrdersPanel();
         const orderNumbersCsv = created.map((entry) => entry.orderNumber).filter(Boolean).join(',');
-        window.location.href = `boleta.html?receipt=${encodeURIComponent(receiptPayload.receiptNumber)}&orders=${encodeURIComponent(orderNumbersCsv)}`;
+        window.location.href = `boleta.html?orders=${encodeURIComponent(orderNumbersCsv)}`;
     }
 
     async function createOrderAndShipment(item, carrier, customer) {
@@ -1903,7 +1798,6 @@
             quantity: item.quantity,
             customerFirstName: customer.firstName,
             customerLastName: customer.lastName,
-            customerEmail: customer.email,
             shippingAddress: customer.shippingAddress
         });
 
@@ -1983,12 +1877,14 @@
             await renderGooglePayButtonForCheckout(true);
         } else {
             placeBtn.style.display = 'none';
-            await renderGooglePayButtonForCheckout(false);
+            if (googlePayCheckoutSection) googlePayCheckoutSection.style.display = 'none';
+            const result = document.getElementById('checkoutApiResult');
+            if (result) result.textContent = 'Inicia sesion para realizar un pedido.';
         }
 
         placeBtn.addEventListener('click', async () => {
             if (!isAuthenticatedUser()) {
-                showToast('Para compra como invitado usa el boton de Google Pay.', 'error');
+                showToast('Inicia sesión para realizar un pedido.', 'error');
                 return;
             }
 
@@ -2183,12 +2079,11 @@
 
     async function initReceiptPage() {
         const downloadBtn = document.getElementById('btnDownloadReceipt');
-        const emailBtn = document.getElementById('btnEmailReceipt');
-        if (!downloadBtn || !emailBtn) {
+        if (!downloadBtn) {
             return;
         }
 
-        let receipt = loadReceipt();
+        let receipt = null;
         if (!receipt) {
             const params = new URLSearchParams(window.location.search || '');
             const orders = params.get('orders') || '';
@@ -2196,9 +2091,6 @@
                 try {
                     const response = await FlashStockApi.getReceiptFromOrders(orders);
                     receipt = response?.data || null;
-                    if (receipt) {
-                        saveReceipt(receipt);
-                    }
                 } catch {
                     receipt = null;
                 }
@@ -2217,9 +2109,6 @@
                 if (orderNumbers.length > 0) {
                     const response = await FlashStockApi.getReceiptFromOrders(orderNumbers.join(','));
                     receipt = response?.data || null;
-                    if (receipt) {
-                        saveReceipt(receipt);
-                    }
                 }
             } catch {
                 receipt = null;
@@ -2229,7 +2118,7 @@
         if (!receipt) {
             const status = document.getElementById('receiptActionStatus');
             if (status) {
-                status.textContent = 'No se pudo recuperar la boleta. Vuelve a completar el checkout para generarla.';
+                status.textContent = 'No se pudo recuperar la boleta desde el servidor. Verifica tus pedidos cuando el servicio este disponible.';
                 status.classList.remove('text-success');
                 status.classList.add('text-danger');
             }
@@ -2243,32 +2132,6 @@
             window.print();
         });
 
-        emailBtn.addEventListener('click', async () => {
-            const status = document.getElementById('receiptActionStatus');
-            emailBtn.disabled = true;
-            if (status) {
-                status.textContent = 'Enviando boleta por correo...';
-            }
-
-            try {
-                await FlashStockApi.sendReceiptEmail(receipt);
-                if (status) {
-                    status.textContent = `Boleta enviada correctamente a ${receipt.customerEmail}.`;
-                    status.classList.remove('text-danger');
-                    status.classList.add('text-success');
-                }
-                showToast('Boleta enviada por correo.', 'success');
-            } catch (error) {
-                if (status) {
-                    status.textContent = `No se pudo enviar la boleta: ${error.message}`;
-                    status.classList.remove('text-success');
-                    status.classList.add('text-danger');
-                }
-                showToast('Error al enviar correo de boleta.', 'error');
-            } finally {
-                emailBtn.disabled = false;
-            }
-        });
     }
 
     async function ensureGoogleMapsLoaded() {
@@ -2687,7 +2550,7 @@
             return;
         }
 
-        userLink.target = '_top'; // Cognito must open outside the storefront iframe.
+        userLink.target = '_top'; // Open the first-party login outside the storefront iframe.
         const logoutLink = ensureLogoutLink(userLink);
         const icon = userLink.querySelector('i');
 
@@ -2783,4 +2646,3 @@
     bootstrapFlashStockFrontend();
 
 })(jQuery);
-

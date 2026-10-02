@@ -43,9 +43,9 @@ public interface OrderRepository extends JpaRepository<CustomerOrder, Long> {
                    o.shipping_address AS shippingAddress
                 FROM orders o
                 LEFT JOIN shipments s ON s.order_number = o.order_number
-                WHERE lower(trim(coalesce(o.customer_email, ''))) = lower(trim(:email))
+                WHERE o.customer_sub = :customerSub
                   AND (:status IS NULL OR o.status = :status)
                 ORDER BY o.created_at DESC
                 """, nativeQuery = true)
-            List<OrderCustomerShippingProjection> findCustomerOrderShippingByEmail(@Param("email") String email, @Param("status") String status);
+            List<OrderCustomerShippingProjection> findCustomerOrderShippingBySub(@Param("customerSub") String customerSub, @Param("status") String status);
 }

@@ -38,6 +38,10 @@ public class CustomerOrder {
     @Column
     private String customerEmail;
 
+    // Nullable for historical orders. Only a verified, explicit migration may assign them.
+    @Column(name = "customer_sub", length = 255)
+    private String customerSub;
+
     @Column
     private String shippingAddress;
 

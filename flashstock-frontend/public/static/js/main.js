@@ -105,6 +105,7 @@
     const RECEIPT_SESSION_KEY = 'flashstock_last_receipt_session_v1';
     const CART_REFRESH_MS = 5000;
     const INVENTORY_REFRESH_MS = 3000;
+    let inventoryEndpointUnavailable = false;
     const TRACKING_REFRESH_MS = 1000;
     const ORDER_STATUS_PAGE = 'order-status.html';
     let inventoryCache = [];
@@ -151,7 +152,9 @@
             }
 
             const fallback = `HTTP ${response.status}`;
-            throw new Error(apiMessage || fallback);
+            const error = new Error(apiMessage || fallback);
+            error.status = response.status;
+            throw error;
         }
 
         return response.json();
@@ -2670,6 +2673,7 @@
         logoutLink = document.createElement('a');
         logoutLink.id = 'navbarLogoutLink';
         logoutLink.href = '/auth/logout';
+        logoutLink.target = '_top';
         logoutLink.className = 'btn border border-secondary rounded-pill px-3 text-primary me-3 my-auto';
         logoutLink.innerHTML = '<i class="fas fa-sign-out-alt me-2"></i>Cerrar sesion';
         logoutLink.style.display = 'none';
@@ -2683,6 +2687,7 @@
             return;
         }
 
+        userLink.target = '_top'; // Cognito must open outside the storefront iframe.
         const logoutLink = ensureLogoutLink(userLink);
         const icon = userLink.querySelector('i');
 
@@ -2718,6 +2723,7 @@
     }
 
     async function refreshStorefrontInventory() {
+        if (inventoryEndpointUnavailable) return;
         try {
             const inventoryResp = await FlashStockApi.listInventory();
             const inventoryItems = inventoryResp?.data || [];
@@ -2725,8 +2731,20 @@
             renderInventoryOnTemplate(inventoryItems);
             normalizeCart(inventoryItems);
             updateCartBadge();
-        } catch {
-            // Keep current catalog rendered if one realtime refresh fails.
+        } catch (error) {
+            // A missing route is an infrastructure integration issue, not empty stock.
+            // Do not poll a non-existent endpoint every three seconds.
+            if (error.status === 404 || error.status === 503) {
+                inventoryEndpointUnavailable = true;
+                const catalog = document.querySelector('.Vegetal-carousel, #tab-1, .fruite-item, .vesitable-item');
+                if (catalog && !document.getElementById('flashstock-inventory-unavailable')) {
+                    const notice = document.createElement('p');
+                    notice.id = 'flashstock-inventory-unavailable';
+                    notice.className = 'alert alert-warning';
+                    notice.textContent = 'Inventario temporalmente no disponible: API Gateway todavía no tiene conectado el microservicio.';
+                    catalog.parentNode.insertBefore(notice, catalog);
+                }
+            }
         }
     }
 

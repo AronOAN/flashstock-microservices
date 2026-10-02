@@ -28,7 +28,7 @@ async function proxy(req:NextRequest,ctx:Context):Promise<NextResponse> {
   const base=process.env.FLASHSTOCK_API_BASE_URL;
   if (!base || !/^https:\/\/[a-z0-9.-]+\/?$/i.test(base)) return json(503,'API AWS sin configurar');
   // Login session always goes through a JWT-protected route in API Gateway.
-  const upstreamPath=path==='/api/auth/me' && req.method==='GET' ? '/api/auth/permissions' : path;
+  const upstreamPath = path;
   const target=new URL(upstreamPath+req.nextUrl.search,base.endsWith('/')?base:`${base}/`);
   const headers=new Headers();
   if (session) headers.set('Authorization',`Bearer ${session.accessToken}`);
@@ -43,6 +43,9 @@ async function proxy(req:NextRequest,ctx:Context):Promise<NextResponse> {
     const body=method==='GET'||method==='HEAD'?undefined:await req.arrayBuffer();
     if (body && body.byteLength>1024*1024) return json(413,'Solicitud demasiado grande');
     const response=await fetch(target,{method,headers,body,redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(12000)});
+    if (path === '/api/inventory' && response.status === 404) {
+      return json(503,'Inventario pendiente: falta conectar la ruta de API Gateway a su backend');
+    }
     const ct=response.headers.get('content-type')||'application/json';
     const bytes=await response.arrayBuffer();
     if (bytes.byteLength>4*1024*1024) return json(502,'Respuesta excede tamaño permitido');

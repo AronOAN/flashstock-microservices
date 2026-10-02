@@ -36,7 +36,7 @@ class InventoryControllerTest {
 
         ResponseEntity<ApiResponse<List<InventoryResponse>>> response = controller.getAll();
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals("Inventario listado", response.getBody().getMessage());
         assertEquals(items, response.getBody().getData());
     }

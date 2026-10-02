@@ -154,12 +154,20 @@ jobs:
   # 4. ANÁLISIS DE CÓDIGO CON SONARCLOUD
   # -----------------------------------------------------------------
 
+ # -----------------------------------------------------------------
+  # 4. ANÁLISIS DE CÓDIGO CON SONARCLOUD
+  # -----------------------------------------------------------------
+
   sonar-cloud:
     name: SonarCloud Quality Gate
     runs-on: ubuntu-latest
     needs: backend
 
+    permissions:
+      contents: read
+
     steps:
+
       # ==========================================
       # CHECKOUT
       # ==========================================
@@ -188,28 +196,38 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
+          if [ -z "${SONAR_TOKEN:-}" ]; then
             echo "::error::SONAR_TOKEN no está configurado"
             exit 1
           fi
 
       # ==========================================
-      # SONARCLOUD - MICROSERVICIOS
+      # COMPILAR TODOS LOS MICROSERVICIOS
       # ==========================================
 
-      - name: Run SonarCloud on each Java module
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+      - name: Build modules and prepare SonarCloud
+        shell: bash
         run: |
           set -euo pipefail
 
-          SONAR_PLUGIN="org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar"
+          services=(auth gateway inventory orden shipping)
 
-          for service in auth gateway inventory orden shipping; do
+          sources=()
+          tests=()
+          binaries=()
+          test_binaries=()
+          coverage=()
+          junit_reports=()
+
+          join_csv() {
+            local IFS=,
+            printf '%s' "$*"
+          }
+
+          for service in "${services[@]}"; do
 
             echo "========================================"
-            echo "Analizando microservicio: $service"
+            echo "Compilando: $service"
             echo "========================================"
 
             if [ ! -f "$service/pom.xml" ]; then
@@ -219,13 +237,99 @@ jobs:
 
             mvn --batch-mode \
               -f "$service/pom.xml" \
-              verify \
-              "$SONAR_PLUGIN" \
-              -Dsonar.projectKey="aronaon_flashstock-${service}" \
-              -Dsonar.organization=aronoan \
-              -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.qualitygate.wait=true
+              clean verify
 
-            echo "Análisis terminado: $service"
+            # Código fuente
+            if [ -d "$service/src/main" ]; then
+              sources+=("$service/src/main")
+            fi
+
+            # Bytecode requerido para analizar Java
+            if [ -d "$service/target/classes" ]; then
+              binaries+=("$service/target/classes")
+            elif [ -d "$service/src/main/java" ]; then
+              echo "::error::No hay clases compiladas para $service"
+              exit 1
+            fi
+
+            # Código de pruebas
+            if [ -d "$service/src/test" ]; then
+              tests+=("$service/src/test")
+            fi
+
+            # Clases de pruebas compiladas
+            if [ -d "$service/target/test-classes" ]; then
+              test_binaries+=("$service/target/test-classes")
+            fi
+
+            # Cobertura JaCoCo
+            REPORT="$service/target/site/jacoco/jacoco.xml"
+
+            if [ -s "$REPORT" ]; then
+              coverage+=("$REPORT")
+              echo "JaCoCo encontrado: $REPORT"
+            else
+              echo "::warning::Sin reporte JaCoCo para $service"
+            fi
+
+            # Resultados JUnit
+            if [ -d "$service/target/surefire-reports" ]; then
+              junit_reports+=("$service/target/surefire-reports")
+            fi
 
           done
+
+          # ==========================================
+          # CONFIGURACIÓN ÚNICA DE SONARCLOUD
+          # ==========================================
+
+          if [ "${#sources[@]}" -eq 0 ]; then
+            echo "::error::No se encontraron fuentes para analizar"
+            exit 1
+          fi
+
+          if [ "${#binaries[@]}" -eq 0 ]; then
+            echo "::error::No se encontraron clases Java compiladas"
+            exit 1
+          fi
+
+          {
+            echo "sonar.projectKey=aronoan_flashstock-microservices"
+            echo "sonar.organization=aronoan"
+            echo "sonar.host.url=https://sonarcloud.io"
+            echo "sonar.sourceEncoding=UTF-8"
+
+            echo "sonar.sources=$(join_csv "${sources[@]}")"
+            echo "sonar.java.binaries=$(join_csv "${binaries[@]}")"
+
+            if [ "${#tests[@]}" -gt 0 ]; then
+              echo "sonar.tests=$(join_csv "${tests[@]}")"
+            fi
+
+            if [ "${#test_binaries[@]}" -gt 0 ]; then
+              echo "sonar.java.test.binaries=$(join_csv "${test_binaries[@]}")"
+            fi
+
+            if [ "${#coverage[@]}" -gt 0 ]; then
+              echo "sonar.coverage.jacoco.xmlReportPaths=$(join_csv "${coverage[@]}")"
+            fi
+
+            if [ "${#junit_reports[@]}" -gt 0 ]; then
+              echo "sonar.junit.reportPaths=$(join_csv "${junit_reports[@]}")"
+            fi
+
+            echo "sonar.qualitygate.wait=true"
+
+          } > sonar-project.properties
+
+          echo "Configuración SonarCloud preparada:"
+          cat sonar-project.properties
+
+      # ==========================================
+      # UN SOLO ANÁLISIS PARA TODO FLASHSTOCK
+      # ==========================================
+
+      - name: Analyze FlashStock with SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

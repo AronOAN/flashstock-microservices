@@ -47,8 +47,8 @@ jobs:
       ADMIN_EMAIL: aron83353@gmail.com
       ADMIN_EMAIL_2: al.zegers@gmail.com
       CASHFLOW_UNIT_VALUE: "12.5"
-      GOOGLE_CLIENT_ID: placeholder-google-client-id
-      GOOGLE_CLIENT_SECRET: placeholder-google-client-secret
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID}}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET}}
       MAIL_PROVIDER: gmail
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: "465"

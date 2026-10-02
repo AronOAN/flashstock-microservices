@@ -1,4 +1,4 @@
-package test.java.com.inventory.controllers;
+package com.inventory.controllers;
 
 import com.inventory.common.ApiResponse;
 import com.inventory.dtos.InventoryRealtimeResponse;

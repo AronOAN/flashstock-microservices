@@ -1,4 +1,4 @@
-package test.java.com.shipping.controllers;
+package com.shipping.controllers;
 
 import com.shipping.common.ApiResponse;
 import com.shipping.dtos.ShipmentLiveUpdateRequest;

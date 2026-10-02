@@ -1,4 +1,4 @@
-package test.java.com.order.controllers;
+package com.order.controllers;
 
 import com.order.common.ApiResponse;
 import com.order.dtos.ReceiptEmailRequest;

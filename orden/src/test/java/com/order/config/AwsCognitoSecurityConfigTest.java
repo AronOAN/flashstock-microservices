@@ -1,185 +1,129 @@
 
 package com.order.config;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import java.time.Instant;
+
+import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.web.SecurityFilterChain;
 
-@Configuration
-@Profile("aws")
-public class AwsCognitoSecurityConfig {
+import static org.junit.jupiter.api.Assertions.*;
 
-    /**
-     * Valida los claims de un Access Token emitido por el
-     * Cognito User Pool configurado para FlashStock.
-     *
-     * También se utiliza directamente desde las pruebas unitarias.
-     *
-     * Nota: esta validación no sustituye la verificación criptográfica
-     * de la firma JWT que realiza NimbusJwtDecoder.
-     */
-    static OAuth2TokenValidator<Jwt> cognitoValidator(
+class AwsCognitoSecurityConfigTest {
+
+    private static final String ISSUER =
+            "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test";
+
+    private static final String CLIENT = "flashstock-web-test";
+
+    private Jwt token(
+            String use,
+            String client,
             String issuer,
-            String clientId
+            Instant expiry
     ) {
+        Instant issuedAt = Instant.now().minusSeconds(360);
 
-        OAuth2TokenValidator<Jwt> defaultValidator =
-                JwtValidators.createDefaultWithIssuer(issuer);
+        return Jwt.withTokenValue("synthetic-non-network-test")
+                .header("alg", "RS256")
+                .subject("stable-user")
+                .issuedAt(issuedAt)
+                .expiresAt(expiry)
+                .claim("iss", issuer)
+                .claim("token_use", use)
+                .claim("client_id", client)
+                .build();
+    }
 
-        OAuth2TokenValidator<Jwt> accessTokenOnly = token -> {
-
-            // Nunca aceptar un ID Token como Access Token.
-            if (!"access".equals(token.getClaimAsString("token_use"))) {
-
-                return OAuth2TokenValidatorResult.failure(
-                        new OAuth2Error(
-                                "invalid_token",
-                                "Access token required",
-                                null
-                        )
-                );
-            }
-
-            // El token debe pertenecer al App Client configurado.
-            if (!clientId.equals(token.getClaimAsString("client_id"))) {
-
-                return OAuth2TokenValidatorResult.failure(
-                        new OAuth2Error(
-                                "invalid_token",
-                                "Invalid client",
-                                null
-                        )
-                );
-            }
-
-            return OAuth2TokenValidatorResult.success();
-        };
-
-        return new DelegatingOAuth2TokenValidator<>(
-                defaultValidator,
-                accessTokenOnly
+    @Test
+    void buildsDecoderWithoutNetworkValidation() {
+        assertNotNull(
+                new AwsCognitoSecurityConfig()
+                        .cognitoDecoder(ISSUER, CLIENT)
         );
     }
 
-    /**
-     * Decoder de Cognito.
-     *
-     * Nimbus verifica la firma del JWT utilizando las claves públicas
-     * del JWKS del User Pool.
-     *
-     * Posteriormente se validan issuer, timestamps, token_use y client_id.
-     */
-    @Bean
-    JwtDecoder cognitoDecoder(
-            @Value("${flashstock.cognito.issuer}") String issuer,
-            @Value("${flashstock.cognito.client-id}") String clientId
-    ) {
-
-        NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withJwkSetUri(issuer + "/.well-known/jwks.json")
-                .build();
-
-        decoder.setJwtValidator(
-                cognitoValidator(issuer, clientId)
+    @Test
+    void acceptsCorrectAccessTokenClaims() {
+        Jwt jwt = token(
+                "access",
+                CLIENT,
+                ISSUER,
+                Instant.now().plusSeconds(300)
         );
 
-        return decoder;
+        assertFalse(
+                AwsCognitoSecurityConfig
+                        .cognitoValidator(ISSUER, CLIENT)
+                        .validate(jwt)
+                        .hasErrors()
+        );
     }
 
-    /**
-     * Seguridad HTTP de Orden en AWS.
-     *
-     * No utiliza sesiones tradicionales ni autenticación por formulario.
-     * Cada solicitud debe presentar un Access Token válido.
-     */
-    @Bean
-    SecurityFilterChain cognitoSecurityFilterChain(
-            HttpSecurity http
-    ) throws Exception {
+    @Test
+    void rejectsIdToken() {
+        Jwt jwt = token(
+                "id",
+                CLIENT,
+                ISSUER,
+                Instant.now().plusSeconds(300)
+        );
 
-        return http
-                .csrf(csrf -> csrf.disable())
+        assertTrue(
+                AwsCognitoSecurityConfig
+                        .cognitoValidator(ISSUER, CLIENT)
+                        .validate(jwt)
+                        .hasErrors()
+        );
+    }
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
+    @Test
+    void rejectsOtherClient() {
+        Jwt jwt = token(
+                "access",
+                "different-client",
+                ISSUER,
+                Instant.now().plusSeconds(300)
+        );
 
-                .authorizeHttpRequests(auth -> auth
+        assertTrue(
+                AwsCognitoSecurityConfig
+                        .cognitoValidator(ISSUER, CLIENT)
+                        .validate(jwt)
+                        .hasErrors()
+        );
+    }
 
-                        .requestMatchers(
-                                HttpMethod.OPTIONS,
-                                "/**"
-                        ).permitAll()
+    @Test
+    void rejectsOtherIssuer() {
+        Jwt jwt = token(
+                "access",
+                CLIENT,
+                "https://example.invalid/other",
+                Instant.now().plusSeconds(300)
+        );
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/actuator/health"
-                        ).permitAll()
+        assertTrue(
+                AwsCognitoSecurityConfig
+                        .cognitoValidator(ISSUER, CLIENT)
+                        .validate(jwt)
+                        .hasErrors()
+        );
+    }
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/orders/customer-shipping",
-                                "/api/orders"
-                        ).hasRole("ADMIN")
+    @Test
+    void rejectsExpiredToken() {
+        Jwt jwt = token(
+                "access",
+                CLIENT,
+                ISSUER,
+                Instant.now().minusSeconds(180)
+        );
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/orders/my-history"
-                        ).hasAnyRole("USER", "ADMIN")
-
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/orders/**"
-                        ).hasAnyRole("USER", "ADMIN")
-
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/orders/{orderNumber}/confirm-received",
-                                "/api/orders"
-                        ).hasAnyRole("USER", "ADMIN")
-
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/orders/**"
-                        ).hasRole("ADMIN")
-
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/receipts/from-orders"
-                        ).hasAnyRole("USER", "ADMIN")
-
-                        // Envío de boletas deshabilitado hasta verificar
-                        // autorización y propiedad del pedido.
-                        .requestMatchers(
-                                "/api/receipts/**"
-                        ).denyAll()
-
-                        .anyRequest().denyAll()
-                )
-
-                .oauth2ResourceServer(oauth ->
-                        oauth.jwt(jwt ->
-                                jwt.jwtAuthenticationConverter(
-                                        new CognitoAuthoritiesConverter()
-                                )
-                        )
-                )
-
-                .build();
+        assertTrue(
+                AwsCognitoSecurityConfig
+                        .cognitoValidator(ISSUER, CLIENT)
+                        .validate(jwt)
+                        .hasErrors()
+        );
     }
 }

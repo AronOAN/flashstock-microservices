@@ -625,7 +625,7 @@ public class ShippingService {
 
     private double[] fallbackCoordinate(String seed) {
         String base = seed == null ? "" : seed;
-        long hash = Math.abs((long) base.hashCode());
+        long hash = Integer.toUnsignedLong(base.hashCode());
         double lat = -33.35 - ((hash % 7000) / 100000.0);
         double lng = -70.58 - (((hash / 10.0) % 7000) / 100000.0);
         return new double[] {lat, lng};

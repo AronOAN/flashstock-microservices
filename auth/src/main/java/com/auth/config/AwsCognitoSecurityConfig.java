@@ -48,8 +48,7 @@ public class AwsCognitoSecurityConfig {
     @Bean
     SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-            // /api/** accepts only explicit Bearer tokens, never browser session cookies.
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+            // Auth exposes only safe GET/OPTIONS routes; keep Spring's default CSRF protection.
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
             .requestCache(cache -> cache.requestCache(new NullRequestCache()))

@@ -64,7 +64,7 @@ public class SecurityConfig {
         return http
 
             // Only explicit Bearer credentials authenticate this stateless API.
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+            .csrf(csrf -> csrf.ignoringRequestMatchers(INVENTORY_ROOT, INVENTORY_SUBPATH))
 
             // Nunca utilizar HttpSession para persistir
             // el SecurityContext.

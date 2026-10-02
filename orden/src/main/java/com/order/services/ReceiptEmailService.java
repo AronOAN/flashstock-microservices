@@ -187,12 +187,12 @@ public class ReceiptEmailService {
                                 </body>
                                 </html>
                                 """.formatted(
-                                safe(request.getReceiptNumber()),
-                                safe(request.getCreatedAt()),
-                                safe(request.getCustomerFirstName()),
-                                safe(request.getCustomerLastName()),
-                                safe(request.getCustomerEmail()),
-                                safe(request.getShippingAddress()),
+                                escapeHtml(request.getReceiptNumber()),
+                                escapeHtml(request.getCreatedAt()),
+                                escapeHtml(request.getCustomerFirstName()),
+                                escapeHtml(request.getCustomerLastName()),
+                                escapeHtml(request.getCustomerEmail()),
+                                escapeHtml(request.getShippingAddress()),
                                 productRows,
                                 shipmentRows,
                                 currency(request.getSubtotal()),

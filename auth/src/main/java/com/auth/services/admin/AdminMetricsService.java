@@ -152,7 +152,7 @@ public class AdminMetricsService {
 
     private boolean isCompletedOrder(String status) {
         String normalized = normalize(status);
-        return normalized.contains("COMPLETE") || normalized.contains("PAID") || normalized.contains("CLOSED");
+        return normalized.contains("COMPLET") || normalized.contains("PAID") || normalized.contains("CLOSED");
     }
 
     private String riskLevel(int currentStock, int orderedUnits) {

@@ -50,8 +50,8 @@ public class AwsCognitoSecurityConfig {
     @Bean
     SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-            // /api/** accepts only explicit Bearer tokens, never browser session cookies.
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+            // Orders accept only explicit Bearer tokens, never browser session cookies.
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/orders", "/api/orders/**"))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
             .requestCache(cache -> cache.requestCache(new NullRequestCache()))

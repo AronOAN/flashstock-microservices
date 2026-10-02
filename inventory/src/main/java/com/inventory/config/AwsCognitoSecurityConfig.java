@@ -110,7 +110,7 @@ public class AwsCognitoSecurityConfig {
         return http
 
             // Only explicit Bearer credentials authenticate this stateless API.
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
+            .csrf(csrf -> csrf.ignoringRequestMatchers(INVENTORY_ROOT, INVENTORY_SUBPATH))
 
             // No crear ni utilizar sesiones HTTP
             // para almacenar autenticaciones.

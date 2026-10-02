@@ -10,8 +10,22 @@ export default defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/static/lib/**",
+    "**/*.min.js",
   ]),
+    {
+    files: ["public/**/*.js"],
 
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+
+        Chart: "readonly",
+        google: "readonly",
+        jQuery: "readonly",
+      },
+    },
+  },
   {
     files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     extends: [js.configs.recommended],
@@ -35,4 +49,6 @@ export default defineConfig([
       ...nextPlugin.configs["core-web-vitals"].rules,
     },
   },
+
+
 ]);

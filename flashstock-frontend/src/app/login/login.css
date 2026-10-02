@@ -10,3 +10,5 @@
 .fs-login-shell a:focus-visible{outline:3px solid #92b944;outline-offset:4px;border-radius:6px}
 @media(max-width:840px){.fs-login-shell{grid-template-columns:1fr}.fs-login-aside{min-height:auto;padding:27px 26px 30px}.fs-login-aside-copy{padding:24px 0 0}.fs-login-aside h1{font-size:31px;margin-bottom:12px}.fs-login-aside p{font-size:13px;line-height:1.6}.fs-login-aside-footer,.fs-login-kicker{display:none}.fs-login-main{padding:42px 25px 66px;justify-content:flex-start}.fs-login-top{margin-bottom:38px}.fs-login-footnote{margin-top:38px}}
 @media(prefers-reduced-motion:reduce){.fs-login-primary{transition:none}.fs-login-primary:hover{transform:none}}
+.fs-login-pkce{display:flex;align-items:center;justify-content:center;min-height:50px;margin-top:16px;padding:10px 16px;border:1px solid var(--fs-forest);border-radius:12px;color:var(--fs-forest);font-size:14px;font-weight:700;text-align:center}.fs-login-pkce:hover{background:#e8f0e4}
+.fs-login-method-note{margin:9px 0 0;color:var(--fs-muted);font-size:12px;text-align:center}

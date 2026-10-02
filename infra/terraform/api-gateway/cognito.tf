@@ -33,8 +33,8 @@ resource "aws_cognito_user_pool" "flashstock" {
   }
 }
 
-# Cliente público sin secreto. El formulario propio llama a InitiateAuth desde Next.js;
-# Cognito valida la contraseña y emite el Access Token con sus grupos.
+# Cliente público sin secreto: permite el formulario propio (InitiateAuth) y
+# Authorization Code + PKCE vía el dominio de Cognito.
 resource "aws_cognito_user_pool_client" "frontend" {
   name                                 = "${var.project_name}-${var.environment}-frontend"
   user_pool_id                         = aws_cognito_user_pool.flashstock.id
@@ -42,7 +42,7 @@ resource "aws_cognito_user_pool_client" "frontend" {
   prevent_user_existence_errors        = "ENABLED"
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile", "aws.cognito.signin.user.admin"]
   supported_identity_providers         = ["COGNITO"]
   callback_urls = concat(["http://localhost:3000/auth/callback"],
   var.vercel_site_url == "" ? [] : ["${trimsuffix(var.vercel_site_url, "/")}/auth/callback"])

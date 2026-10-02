@@ -89,7 +89,7 @@ async function cognitoUser(accessToken: string): Promise<{ sub: string; email: s
     name: attributes.get('name') || null };
 }
 
-export async function completeSignIn(result: CognitoResult): Promise<NextResponse | null> {
+export async function completeSignIn(result: CognitoResult, redirect?: NextResponse): Promise<NextResponse | null> {
   const token = result.AuthenticationResult;
   // Without a refresh token the browser would lose its session after 15 minutes.
   if (!validAccessToken(token) || typeof token.RefreshToken !== 'string' ||
@@ -105,7 +105,7 @@ export async function completeSignIn(result: CognitoResult): Promise<NextRespons
   const encryptedSession = seal(session);
   const encryptedRefresh = sealRefresh(refresh);
   if (encryptedSession.length > 3800 || encryptedRefresh.length > 3800) return null;
-  const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+  const response = redirect || NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   response.cookies.set(sessionCookieName(), encryptedSession, { ...cookieOptions(), maxAge: token.ExpiresIn });
   response.cookies.set(refreshCookieName(), encryptedRefresh, { ...cookieOptions(), maxAge: REFRESH_TTL_SECONDS });
   response.cookies.set(challengeCookieName(), '', { ...cookieOptions(), maxAge: 0 });

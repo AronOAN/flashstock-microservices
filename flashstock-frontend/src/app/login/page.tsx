@@ -7,4 +7,7 @@ export const metadata: Metadata = {
   description: 'Accede a tu cuenta FlashStock con correo y contraseña.',
 };
 
-export default function LoginPage() { return <LoginForm />; }
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ auth_error?: string }> }) {
+  const params = await searchParams;
+  return <LoginForm loginError={params.auth_error === '1'} />;
+}

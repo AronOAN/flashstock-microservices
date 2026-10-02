@@ -10,12 +10,12 @@ const challengeLabels: Record<Challenge, string> = {
   EMAIL_MFA: 'Código enviado por correo', EMAIL_OTP: 'Código enviado por correo', SMS_OTP: 'Código enviado por SMS',
 };
 
-export default function LoginForm() {
+export default function LoginForm({ loginError = false }: { loginError?: boolean }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [answer, setAnswer] = useState('');
   const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(loginError ? 'No se pudo completar el acceso con Cognito. Inténtalo nuevamente.' : '');
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -84,6 +84,10 @@ export default function LoginForm() {
               {busy ? 'Verificando…' : challenge ? 'Verificar' : 'Iniciar sesión'}
             </button>
           </form>
+          {!challenge && <Link className="fs-login-pkce" href="/auth/pkce">
+            Acceder mediante Cognito
+          </Link>}
+          {!challenge && <p className="fs-login-method-note">Esta opción abre la página de Cognito y usa Authorization Code con PKCE.</p>}
           {challenge && <button className="fs-login-restart" type="button" onClick={() => { setChallenge(null); setAnswer(''); setMessage(''); }}>
             Volver al inicio de sesión
           </button>}

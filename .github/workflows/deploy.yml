@@ -1,12 +1,12 @@
 name: FlashStock Deploy (AWS + Vercel)
 
-# MANUAL ONLY until the four Java backends are hosted and API Gateway has working routes.
-# This repository currently DOES NOT contain a runnable AWS ECS deployment.
+# Manual frontend-only allows publishing HTML/assets/login before ECS business backends are ready.
+# Integrated mode requires working API Gateway /api/inventory (actual backend HTTP 200).
 on:
   workflow_dispatch:
     inputs:
       backend_ready:
-        description: 'I have deployed all required Java services and verified API Gateway /api/inventory responds HTTP 200'
+        description: 'Auth e Inventory desplegados y endpoints verificados'
         required: true
         default: false
         type: boolean
@@ -17,45 +17,97 @@ permissions:
 jobs:
   frontend-vercel:
     name: Verify API and deploy existing Vercel project
+
     if: ${{ inputs.backend_ready == true && github.ref == 'refs/heads/main' }}
+
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: flashstock-frontend
+
     env:
       AWS_API_BASE_URL: https://ly23z3a5hb.execute-api.us-east-1.amazonaws.com
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
-      - name: Validate prerequisites
+
+      - name: Validate prerequisites and AWS security
         shell: bash
         run: |
           set -euo pipefail
+
           for name in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
-            if [ -z "${!name:-}" ]; then echo "::error::$name missing"; exit 1; fi
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name missing"
+              exit 1
+            fi
           done
-          # Public inventory must be routed to a functioning backend. A 404/502 stops deployment.
-          curl --fail --silent --show-error --location \
-            --max-time 20 "${AWS_API_BASE_URL}/api/inventory" -o /dev/null
+
+          check_status() {
+            local endpoint="$1"
+            local expected="$2"
+            local actual
+
+            actual="$(curl \
+              --silent \
+              --show-error \
+              --max-time 20 \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "${AWS_API_BASE_URL}${endpoint}")"
+
+            echo "${endpoint}: HTTP ${actual} (expected ${expected})"
+
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Unexpected HTTP status for ${endpoint}: ${actual}, expected ${expected}"
+              exit 1
+            fi
+          }
+
+          echo "Checking public endpoints..."
+          check_status "/api/auth/providers" "200"
+          check_status "/api/maps/config" "200"
+
+          echo "Checking protected endpoints without JWT..."
+          check_status "/api/inventory" "401"
+          check_status "/api/auth/me" "401"
+          check_status "/api/admin/metrics" "401"
+
+          echo "AWS API security checks passed."
+
       - uses: pnpm/action-setup@v4
         with:
           version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: pnpm
           cache-dependency-path: flashstock-frontend/pnpm-lock.yaml
+
       - name: Install and validate
         run: |
           pnpm install --frozen-lockfile
           pnpm run lint
+
       - name: Deploy via Vercel CLI
         run: |
           set -euo pipefail
+
           npm install --global vercel@latest
-          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
-          # BFF secrets and backend URL MUST be in Vercel Project Settings -> Environment Variables.
+
+          vercel pull --yes \
+            --environment=production \
+            --token "$VERCEL_TOKEN"
+
           vercel build --prod --token "$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+
+          vercel deploy \
+            --prebuilt \
+            --prod \
+            --yes \
+            --token "$VERCEL_TOKEN"

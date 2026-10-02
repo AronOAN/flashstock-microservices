@@ -146,7 +146,9 @@ jobs:
       - name: Run Snyk Security Test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --all-projects --fail-fast --severity-threshold=high --json-file-output=snyk-report.json
+        # Maven wrappers in the services are not executable in the checkout.
+        # Use the runner's Maven; keep fail-fast so an unscanned project fails CI.
+        run: snyk test --all-projects --maven-skip-wrapper --fail-fast --severity-threshold=high --json-file-output=snyk-report.json
 
       - name: Upload Snyk Report
         if: always()

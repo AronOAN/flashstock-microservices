@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.jwt.Jwt;
+import java.time.Instant;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -74,6 +76,20 @@ class AuthControllerTest {
         assertTrue(response.getData().isAuthenticated());
         assertTrue(response.getData().isAdmin());
         assertEquals(List.of("ROLE_ADMIN", "ROLE_USER"), response.getData().getAuthorities());
+    }
+
+    @Test
+    void meReadsJwtClaimsWithoutGrantingAdminByEmail() {
+        Jwt jwt = Jwt.withTokenValue("synthetic-test-token")
+            .header("alg", "RS256").subject("stable-id")
+            .issuedAt(Instant.now().minusSeconds(30)).expiresAt(Instant.now().plusSeconds(300))
+            .claim("username", "cognito-user").claim("email", "aron83353@gmail.com").build();
+        Authentication authentication = new TestingAuthenticationToken(jwt, "n/a", "ROLE_USER");
+        authentication.setAuthenticated(true);
+        ApiResponse<SessionUserResponse> response = controller.me(authentication);
+        assertEquals("aron83353@gmail.com", response.getData().getEmail());
+        assertEquals("cognito-user", response.getData().getDisplayName());
+        assertFalse(response.getData().isAdmin());
     }
 
     @Test

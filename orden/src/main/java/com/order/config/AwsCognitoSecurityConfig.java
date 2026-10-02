@@ -20,11 +20,18 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @Profile("aws")
 public class AwsCognitoSecurityConfig {
+    private static final String ADMIN_ROLE = "ADMIN";
+    private static final String API_SUBPATH = "/api/orders/**";
     @Bean
     JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,
                               @Value("${flashstock.cognito.client-id}") String clientId) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
-        OAuth2TokenValidator<Jwt> defaultValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        decoder.setJwtValidator(cognitoValidator(issuer, clientId));
+        return decoder;
+    }
+
+    static OAuth2TokenValidator<Jwt> cognitoValidator(String issuer, String clientId) {
+        OAuth2TokenValidator<Jwt> standard = JwtValidators.createDefaultWithIssuer(issuer);
         OAuth2TokenValidator<Jwt> accessTokenOnly = token -> {
             if (!"access".equals(token.getClaimAsString("token_use"))) {
                 return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Access token required", null));
@@ -34,8 +41,7 @@ public class AwsCognitoSecurityConfig {
             }
             return OAuth2TokenValidatorResult.success();
         };
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(defaultValidator, accessTokenOnly));
-        return decoder;
+        return new DelegatingOAuth2TokenValidator<>(standard, accessTokenOnly);
     }
 
     @Bean
@@ -46,11 +52,11 @@ public class AwsCognitoSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.GET, "/api/orders/my-history").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/orders/**").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/orders").authenticated()
-                .requestMatchers(HttpMethod.PATCH, "/api/orders/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, API_SUBPATH).authenticated()
+                .requestMatchers(HttpMethod.POST, API_SUBPATH, "/api/orders").authenticated()
+                .requestMatchers(HttpMethod.PATCH, API_SUBPATH).hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.GET, "/api/receipts/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/receipts/**").authenticated()
                 .anyRequest().denyAll()

@@ -11,18 +11,8 @@ health.zip
 # SI versionar .terraform.lock.hcl tras ejecutar terraform init.
 tfplan*
 *.plan
-**/.env
-**/.env.local
-**/.env.production
-**/.env.*.local
-**/terraform.tfvars
-**/terraform.tfvars.json
-**/*.auto.tfvars
-**/*.tfstate
-**/*.tfstate.*
-**/.terraform/
-**/.vercel/
-**/node_modules/
-**/.next/
-**/target/
-**/tfplan*
+
+# Datos sensibles o efímeros de desarrollo
+*.auto.tfvars
+*.auto.tfvars.json
+.terraform.tfstate.lock.info

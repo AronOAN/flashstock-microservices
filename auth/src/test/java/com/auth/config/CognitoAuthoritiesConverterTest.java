@@ -29,4 +29,20 @@ class CognitoAuthoritiesConverterTest {
         var authorities = new CognitoAuthoritiesConverter().convert(token(List.of("ROLE_ADMIN", "admin", "solicitudes-dev"))).getAuthorities();
         assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().startsWith("ROLE_")));
     }
+
+    @Test void userGroupMapsOnlyToRoleUser() {
+        var authorities = new CognitoAuthoritiesConverter().convert(token(List.of("USER"))).getAuthorities();
+        assertTrue(authorities.stream().anyMatch(a -> "ROLE_USER".equals(a.getAuthority())));
+        assertFalse(authorities.stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())));
+    }
+
+    @Test void missingGroupsDoesNotInventRoles() {
+        Jwt jwt = Jwt.withTokenValue("synthetic-token")
+            .header("alg", "RS256").subject("stable-user-id")
+            .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300))
+            .claim("scope", "openid").build();
+        var authorities = new CognitoAuthoritiesConverter().convert(jwt).getAuthorities();
+        assertFalse(authorities.stream().anyMatch(a -> a.getAuthority().startsWith("ROLE_")));
+        assertTrue(authorities.stream().anyMatch(a -> "SCOPE_openid".equals(a.getAuthority())));
+    }
 }

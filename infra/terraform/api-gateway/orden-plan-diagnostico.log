@@ -1,0 +1,320 @@
+data.aws_availability_zones.available: Reading...
+aws_ecs_cluster.flashstock[0]: Refreshing state... [id=arn:aws:ecs:us-east-1:823102413975:cluster/flashstock-dev]
+aws_apigatewayv2_api.flashstock: Refreshing state... [id=ly23z3a5hb]
+aws_ecr_repository.inventory[0]: Refreshing state... [id=flashstock-dev-inventory]
+aws_cloudwatch_log_group.api: Refreshing state... [id=/aws/apigateway/flashstock-dev-http-api]
+aws_cloudwatch_log_group.inventory[0]: Refreshing state... [id=/ecs/flashstock-dev/inventory]
+aws_eip.nat[0]: Refreshing state... [id=eipalloc-02229a57bfadb9943]
+aws_cloudwatch_log_group.auth[0]: Refreshing state... [id=/ecs/flashstock-dev/auth]
+aws_cognito_user_pool.flashstock: Refreshing state... [id=us-east-1_jkrNUk7yQ]
+aws_vpc.flashstock[0]: Refreshing state... [id=vpc-0c5fc06016c6c39ce]
+data.aws_availability_zones.available: Read complete after 1s [id=us-east-1]
+aws_apigatewayv2_stage.default: Refreshing state... [id=$default]
+aws_cognito_user_group.admin: Refreshing state... [id=us-east-1_jkrNUk7yQ/ADMIN]
+aws_cognito_user_group.user: Refreshing state... [id=us-east-1_jkrNUk7yQ/USER]
+aws_cognito_user_pool_client.frontend: Refreshing state... [id=1v1gmjscc2qtpuerhs63v6taob]
+aws_apigatewayv2_authorizer.cognito: Refreshing state... [id=mdwebu]
+aws_internet_gateway.flashstock[0]: Refreshing state... [id=igw-0b6d17f1ea331fa92]
+aws_security_group.ecs[0]: Refreshing state... [id=sg-02c7ab290d7d6b8a6]
+aws_subnet.public[1]: Refreshing state... [id=subnet-079105d8091dda705]
+aws_subnet.application[0]: Refreshing state... [id=subnet-0dd5ac742ce1e4193]
+aws_route_table.database[0]: Refreshing state... [id=rtb-0200be5e9f31c3aa2]
+aws_subnet.public[0]: Refreshing state... [id=subnet-082e9ac7ecf10a6c5]
+aws_subnet.application[1]: Refreshing state... [id=subnet-043a98fd99a2ac74a]
+aws_route_table.public[0]: Refreshing state... [id=rtb-0d5d4e0e43f91d794]
+aws_lb_target_group.auth[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:targetgroup/flashstock-dev-auth/f350ca3d9b1ae038]
+aws_subnet.database[0]: Refreshing state... [id=subnet-0491b3880e8c1cd66]
+aws_subnet.database[1]: Refreshing state... [id=subnet-0acad745a5d683437]
+aws_lb_target_group.inventory[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:targetgroup/flashstock-dev-inventory/d88292a5aa8fc7c0]
+aws_route_table.application[0]: Refreshing state... [id=rtb-0233aaa2b81e74acc]
+aws_security_group.auth_ecs[0]: Refreshing state... [id=sg-05c3c7c8c5edbc79b]
+aws_security_group.vpc_link[0]: Refreshing state... [id=sg-0237a6aa5278379c5]
+aws_security_group.db[0]: Refreshing state... [id=sg-0892123fbc7ed0d2e]
+aws_route.public_internet[0]: Refreshing state... [id=r-rtb-0d5d4e0e43f91d7941080289494]
+aws_route_table_association.public[0]: Refreshing state... [id=rtbassoc-0370eebdd847160e5]
+aws_route_table_association.public[1]: Refreshing state... [id=rtbassoc-014aedf0ad4ddbb37]
+aws_route_table_association.database[1]: Refreshing state... [id=rtbassoc-0caec47c11ae94829]
+aws_route_table_association.database[0]: Refreshing state... [id=rtbassoc-08edb48d0ca542132]
+aws_db_subnet_group.inventory[0]: Refreshing state... [id=flashstock-dev-inventory]
+aws_route_table_association.application[0]: Refreshing state... [id=rtbassoc-0f68cf209ecd1aa8c]
+aws_route_table_association.application[1]: Refreshing state... [id=rtbassoc-05a3bf7392dabaee6]
+aws_apigatewayv2_vpc_link.flashstock[0]: Refreshing state... [id=2c9ya7]
+aws_vpc_security_group_ingress_rule.postgres_from_inventory[0]: Refreshing state... [id=sgr-0ec6309249ea0b78e]
+aws_nat_gateway.flashstock[0]: Refreshing state... [id=nat-0343f1fdc80974632]
+aws_vpc_security_group_ingress_rule.postgres_from_auth[0]: Refreshing state... [id=sgr-0c5c05dc67f7f261c]
+aws_vpc_security_group_egress_rule.auth_postgres[0]: Refreshing state... [id=sgr-097c89534477df8ba]
+aws_security_group.alb[0]: Refreshing state... [id=sg-0411a7bf103d40203]
+aws_vpc_security_group_egress_rule.auth_https[0]: Refreshing state... [id=sgr-0ceed9fb6e92faea6]
+aws_route.app_nat[0]: Refreshing state... [id=r-rtb-0233aaa2b81e74acc1080289494]
+aws_vpc_security_group_ingress_rule.alb_from_link[0]: Refreshing state... [id=sgr-08350d012fa1312c2]
+aws_vpc_security_group_ingress_rule.inventory_from_alb[0]: Refreshing state... [id=sgr-0d15afe155652e3b0]
+aws_vpc_security_group_ingress_rule.auth_from_alb["sg-0411a7bf103d40203"]: Refreshing state... [id=sgr-0d45e05812c8ec75a]
+aws_lb.flashstock[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:loadbalancer/app/flashstock-dev-internal/7055e5fb998d5f31]
+aws_db_instance.inventory[0]: Refreshing state... [id=db-AZC7Y6GVH23WP7Z3VRXXPEJUGE]
+aws_lb_listener.http[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:listener/app/flashstock-dev-internal/7055e5fb998d5f31/76e59e7f37211c12]
+aws_ecs_task_definition.inventory[0]: Refreshing state... [id=flashstock-dev-inventory]
+aws_ecs_task_definition.auth[0]: Refreshing state... [id=flashstock-dev-auth]
+aws_ecs_task_definition.inventory_migrate[0]: Refreshing state... [id=flashstock-dev-inventory-migrate]
+aws_lb_listener_rule.inventory[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:listener-rule/app/flashstock-dev-internal/7055e5fb998d5f31/76e59e7f37211c12/aa982aa561798a62]
+aws_lb_listener_rule.auth[0]: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:823102413975:listener-rule/app/flashstock-dev-internal/7055e5fb998d5f31/76e59e7f37211c12/f04ab24d2bd539fc]
+aws_ecs_service.auth[0]: Refreshing state... [id=arn:aws:ecs:us-east-1:823102413975:service/flashstock-dev/flashstock-dev-auth]
+aws_ecs_service.inventory[0]: Refreshing state... [id=arn:aws:ecs:us-east-1:823102413975:service/flashstock-dev/flashstock-dev-inventory]
+aws_apigatewayv2_integration.auth[0]: Refreshing state... [id=z2xeyh8]
+aws_apigatewayv2_integration.inventory[0]: Refreshing state... [id=po75jc7]
+aws_apigatewayv2_route.auth["GET /api/maps/config"]: Refreshing state... [id=dncygyo]
+aws_apigatewayv2_route.auth["GET /api/auth/providers"]: Refreshing state... [id=cn32fs6]
+aws_apigatewayv2_route.auth["GET /api/auth/me"]: Refreshing state... [id=7sxhrmn]
+aws_apigatewayv2_route.auth["GET /api/admin/metrics"]: Refreshing state... [id=sm38b6k]
+aws_apigatewayv2_route.inventory["GET /api/inventory"]: Refreshing state... [id=ot85jbc]
+aws_apigatewayv2_route.inventory["POST /api/inventory"]: Refreshing state... [id=9aluy7v]
+aws_apigatewayv2_route.inventory["GET /api/inventory/{proxy+}"]: Refreshing state... [id=h7qyzu3]
+aws_apigatewayv2_route.inventory["ANY /api/inventory/{proxy+}"]: Refreshing state... [id=mjfoam6]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # aws_cloudwatch_log_group.orden[0] will be created
+  + resource "aws_cloudwatch_log_group" "orden" {
+      + arn                         = (known after apply)
+      + deletion_protection_enabled = (known after apply)
+      + id                          = (known after apply)
+      + log_group_class             = (known after apply)
+      + name                        = "/ecs/flashstock-dev/orden"
+      + name_prefix                 = (known after apply)
+      + region                      = "us-east-1"
+      + retention_in_days           = 14
+      + skip_destroy                = false
+      + tags_all                    = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+        }
+    }
+
+  # aws_lb_target_group.orden[0] will be created
+  + resource "aws_lb_target_group" "orden" {
+      + arn                                = (known after apply)
+      + arn_suffix                         = (known after apply)
+      + connection_termination             = (known after apply)
+      + deregistration_delay               = "300"
+      + id                                 = (known after apply)
+      + ip_address_type                    = (known after apply)
+      + lambda_multi_value_headers_enabled = false
+      + load_balancer_arns                 = (known after apply)
+      + load_balancing_algorithm_type      = (known after apply)
+      + load_balancing_anomaly_mitigation  = (known after apply)
+      + load_balancing_cross_zone_enabled  = (known after apply)
+      + name                               = "flashstock-dev-orden"
+      + name_prefix                        = (known after apply)
+      + port                               = 8083
+      + preserve_client_ip                 = (known after apply)
+      + protocol                           = "HTTP"
+      + protocol_version                   = (known after apply)
+      + proxy_protocol_v2                  = false
+      + region                             = "us-east-1"
+      + slow_start                         = 0
+      + tags                               = {
+          + "Environment" = "dev"
+          + "Project"     = "flashstock"
+          + "Service"     = "orden"
+        }
+      + tags_all                           = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "flashstock"
+          + "Service"     = "orden"
+        }
+      + target_type                        = "ip"
+      + vpc_id                             = "vpc-0c5fc06016c6c39ce"
+
+      + health_check {
+          + enabled             = true
+          + healthy_threshold   = 2
+          + interval            = 30
+          + matcher             = "200"
+          + path                = "/actuator/health"
+          + port                = "traffic-port"
+          + protocol            = "HTTP"
+          + timeout             = 5
+          + unhealthy_threshold = 3
+        }
+
+      + stickiness (known after apply)
+
+      + target_failover (known after apply)
+
+      + target_group_health (known after apply)
+
+      + target_health_state (known after apply)
+    }
+
+  # aws_security_group.alb[0] will be updated in-place
+  ~ resource "aws_security_group" "alb" {
+      ~ egress                 = [
+          - {
+              - cidr_blocks      = [
+                  - "10.72.0.0/16",
+                ]
+              - from_port        = 8082
+              - ipv6_cidr_blocks = []
+              - prefix_list_ids  = []
+              - protocol         = "tcp"
+              - security_groups  = []
+              - self             = false
+              - to_port          = 8082
+                # (1 unchanged attribute hidden)
+            },
+          + {
+              + cidr_blocks      = [
+                  + "10.72.0.0/16",
+                ]
+              + from_port        = 8082
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = []
+              + self             = false
+              + to_port          = 8082
+            },
+          + {
+              + cidr_blocks      = []
+              + description      = "ALB to FlashStock Orden only"
+              + from_port        = 8083
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = (known after apply)
+              + self             = false
+              + to_port          = 8083
+            },
+            # (1 unchanged element hidden)
+        ]
+        id                     = "sg-0411a7bf103d40203"
+        name                   = "flashstock-dev-alb-9bfeaccf2e42839d133a750664"
+        tags                   = {
+            "Name" = "flashstock-dev-alb"
+        }
+        # (9 unchanged attributes hidden)
+    }
+
+  # aws_security_group.orden_ecs[0] will be created
+  + resource "aws_security_group" "orden_ecs" {
+      + arn                    = (known after apply)
+      + description            = "Security Group for private FlashStock Orden Fargate"
+      + egress                 = (known after apply)
+      + id                     = (known after apply)
+      + ingress                = (known after apply)
+      + name                   = "flashstock-dev-orden-ecs"
+      + name_prefix            = (known after apply)
+      + owner_id               = (known after apply)
+      + region                 = "us-east-1"
+      + revoke_rules_on_delete = false
+      + tags                   = {
+          + "Environment" = "dev"
+          + "Project"     = "flashstock"
+          + "Service"     = "orden"
+        }
+      + tags_all               = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+          + "Project"     = "flashstock"
+          + "Service"     = "orden"
+        }
+      + vpc_id                 = "vpc-0c5fc06016c6c39ce"
+    }
+
+  # aws_vpc_security_group_egress_rule.orden_https[0] will be created
+  + resource "aws_vpc_security_group_egress_rule" "orden_https" {
+      + arn                    = (known after apply)
+      + cidr_ipv4              = "0.0.0.0/0"
+      + description            = "Orden TLS outbound to JWKS/AWS via existing NAT"
+      + from_port              = 443
+      + id                     = (known after apply)
+      + ip_protocol            = "tcp"
+      + region                 = "us-east-1"
+      + security_group_id      = (known after apply)
+      + security_group_rule_id = (known after apply)
+      + tags_all               = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+        }
+      + to_port                = 443
+    }
+
+  # aws_vpc_security_group_egress_rule.orden_postgres[0] will be created
+  + resource "aws_vpc_security_group_egress_rule" "orden_postgres" {
+      + arn                          = (known after apply)
+      + description                  = "Orden to private FlashStock PostgreSQL"
+      + from_port                    = 5432
+      + id                           = (known after apply)
+      + ip_protocol                  = "tcp"
+      + referenced_security_group_id = "sg-0892123fbc7ed0d2e"
+      + region                       = "us-east-1"
+      + security_group_id            = (known after apply)
+      + security_group_rule_id       = (known after apply)
+      + tags_all                     = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+        }
+      + to_port                      = 5432
+    }
+
+  # aws_vpc_security_group_ingress_rule.orden_from_alb[0] will be created
+  + resource "aws_vpc_security_group_ingress_rule" "orden_from_alb" {
+      + arn                          = (known after apply)
+      + description                  = "FlashStock ALB to Orden TCP 8083 only"
+      + from_port                    = 8083
+      + id                           = (known after apply)
+      + ip_protocol                  = "tcp"
+      + referenced_security_group_id = "sg-0411a7bf103d40203"
+      + region                       = "us-east-1"
+      + security_group_id            = (known after apply)
+      + security_group_rule_id       = (known after apply)
+      + tags_all                     = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+        }
+      + to_port                      = 8083
+    }
+
+  # aws_vpc_security_group_ingress_rule.postgres_from_orden[0] will be created
+  + resource "aws_vpc_security_group_ingress_rule" "postgres_from_orden" {
+      + arn                          = (known after apply)
+      + description                  = "Private FlashStock RDS ingress from Orden"
+      + from_port                    = 5432
+      + id                           = (known after apply)
+      + ip_protocol                  = "tcp"
+      + referenced_security_group_id = (known after apply)
+      + region                       = "us-east-1"
+      + security_group_id            = "sg-0892123fbc7ed0d2e"
+      + security_group_rule_id       = (known after apply)
+      + tags_all                     = {
+          + "Application" = "flashstock"
+          + "Environment" = "dev"
+          + "ManagedBy"   = "Terraform"
+        }
+      + to_port                      = 5432
+    }
+
+Plan: 7 to add, 1 to change, 0 to destroy.
+
+Changes to Outputs:
+  + orden_ecs_security_group_id      = (known after apply)
+  + orden_log_group                  = "/ecs/flashstock-dev/orden"
+  + orden_target_group_arn           = (known after apply)
+
+─────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: orden-foundation-new.tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "orden-foundation-new.tfplan"

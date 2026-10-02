@@ -1,12 +1,48 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FlashStock | Acceso seguro</title><link rel="stylesheet" href="/static/css/bootstrap.min.css">
-<link rel="stylesheet" href="/static/css/style.css"></head>
-<body><main class="container py-5" style="max-width:600px"><div class="bg-white rounded p-5 shadow">
-<h1 class="text-primary">Iniciar sesión</h1>
-<p>Accede a FlashStock mediante Amazon Cognito. Los permisos son asignados por los grupos USER y ADMIN.</p>
-<p id="error" role="alert" class="text-danger" hidden>No se pudo iniciar sesión. Revisa la configuración de Cognito.</p>
-<a class="btn btn-primary w-100 py-3 rounded-pill mb-3" target="_top" href="/auth/login">Iniciar sesión con Cognito</a>
-<a class="btn btn-outline-secondary w-100 py-2 rounded-pill mb-3" target="_top" href="/">Volver al inicio</a>
-<a class="btn btn-outline-danger w-100 py-2 rounded-pill" target="_top" href="/auth/logout">Cerrar sesión</a>
-</div></main><script>if(new URLSearchParams(location.search).has('error'))document.getElementById('error').hidden=false;</script></body></html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#173b32">
+  <meta name="description" content="Accede a FlashStock con una cuenta protegida mediante Amazon Cognito.">
+  <title>Iniciar sesión | FlashStock</title>
+  <link rel="stylesheet" href="/static/css/flashstock-login.css">
+</head>
+<body style="margin:0">
+  <div class="fs-login-shell">
+    <aside class="fs-login-aside" aria-label="FlashStock">
+      <a class="fs-login-brand" href="/" target="_top" aria-label="FlashStock, volver a la tienda"><span class="fs-login-mark" aria-hidden="true">F</span><span>FlashStock</span></a>
+      <div class="fs-login-aside-copy">
+        <div class="fs-login-kicker">Una experiencia más simple</div>
+        <h1>Tu tienda,<br><span>tu espacio.</span></h1>
+        <p>Accede a tu cuenta para gestionar tus compras y consultar tus pedidos en un mismo lugar.</p>
+      </div>
+      <div class="fs-login-aside-footer">FlashStock · Tu acceso, bajo tu control.</div>
+    </aside>
+    <main class="fs-login-main" id="contenido">
+      <div class="fs-login-top"><a href="/" target="_top" class="fs-login-back">← Volver a la tienda</a></div>
+      <section class="fs-login-card" aria-labelledby="login-heading">
+        <p class="fs-login-eyebrow">Bienvenido de nuevo</p>
+        <h2 id="login-heading">Inicia sesión</h2>
+        <p class="fs-login-intro">Continúa de forma segura con tu cuenta de FlashStock. Serás dirigido al acceso protegido de nuestro proveedor de identidad.</p>
+        <div id="login-error" class="fs-login-alert" role="alert" hidden>No fue posible completar el inicio de sesión. Inténtalo nuevamente.</div>
+        <a class="fs-login-primary" href="/auth/login" target="_top">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+          Continuar para iniciar sesión
+        </a>
+        <p class="fs-login-identity-note"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Tu contraseña se introduce en la página segura de Amazon Cognito, nunca en este formulario de presentación.</span></p>
+        <a class="fs-login-secondary" href="/" target="_top">Seguir explorando sin iniciar sesión →</a>
+      </section>
+      <p class="fs-login-footnote">¿Necesitas ayuda para acceder? Contacta al equipo de soporte de FlashStock. Nunca compartas tu contraseña ni códigos de verificación.</p>
+    </main>
+  </div>
+  <script>
+    (function () {
+      const hasError = new URLSearchParams(window.location.search).has('error');
+      const message = document.getElementById('login-error');
+      if (message) message.hidden = !hasError;
+    }());
+  </script>
+</body>
+</html>

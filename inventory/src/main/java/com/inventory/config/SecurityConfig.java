@@ -1,110 +1,130 @@
+
 package com.inventory.config;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpMethod;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.HttpMethod;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.NullSecurityContextRepository;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 
 @Configuration
 @Profile("!aws")
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final CustomOAuth2UserService customOAuth2UserService;
-    private final CustomOidcUserService customOidcUserService;
-    private final OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver;
+    private static final String ADMIN_ROLE = "ADMIN";
+
+    private static final String INVENTORY_ROOT = "/api/inventory";
+    private static final String INVENTORY_SUBPATH = "/api/inventory/**";
+
+    /**
+     * Utiliza el mismo validador de Cognito que AWS.
+     *
+     * Comprueba:
+     * - Firma mediante JWKS (NimbusJwtDecoder).
+     * - Issuer y vencimiento.
+     * - token_use = access.
+     * - client_id esperado.
+     */
+    @Bean
+    JwtDecoder cognitoDecoder(
+            @Value("${flashstock.cognito.issuer}") String issuer,
+            @Value("${flashstock.cognito.client-id}") String clientId
+    ) {
+
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withJwkSetUri(issuer + "/.well-known/jwks.json")
+                .build();
+
+        decoder.setJwtValidator(
+                AwsCognitoSecurityConfig.cognitoValidator(
+                        issuer,
+                        clientId
+                )
+        );
+
+        return decoder;
+    }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            // Existing frontend flow posts to public APIs without CSRF token.
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                // 1) Publico (HTML/CSS/JS)
-                .requestMatchers(
-                    "/",
-                    "/index.html",
-                    "/shop.html",
-                    "/cart.html",
-                    "/chackout.html",
-                    "/contact.html",
-                    "/login",
-                    "/login.html",
-                    "/logout",
-                    "/css/**",
-                    "/js/**",
-                    "/img/**",
-                    "/lib/**",
-                    "/favicon.ico"
-                ).permitAll()
+    public SecurityFilterChain filterChain(
+            HttpSecurity http
+    ) throws Exception {
 
-                // 2) Publico API
-                .requestMatchers("/api/auth/providers", "/api/maps/config").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/inventory/**", "/api/coupons/**", "/api/receipts/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/receipts/**").permitAll()
+        return http
 
-                // 3) Pagos publicos
-                .requestMatchers(HttpMethod.GET, "/api/payments/google-pay/config", "/api/payments/deuna/config").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/payments/google-pay/authorize",
-                    "/api/payments/deuna/attempts", "/api/payments/deuna/webhook").permitAll()
+            // API Bearer, sin autenticación mediante cookies.
+            .csrf(AbstractHttpConfigurer::disable)
 
-                // 4) Admin
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/shipping").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/inventory/**", "/api/coupons/**").permitAll()
-                .requestMatchers(HttpMethod.PATCH, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-
-                // 5) Autenticado (cualquier rol)
-                .requestMatchers("/api/auth/me", "/api/cart/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/orders/my-history").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/shipping/tracking/**", "/api/shipping/*").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/shipping/**").authenticated()
-
-                // 6) Docs
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**").permitAll()
-
-                .anyRequest().authenticated()
+            // Nunca utilizar HttpSession para persistir
+            // el SecurityContext.
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
             )
 
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")
-                .authorizationEndpoint(authorization ->
-                    authorization.authorizationRequestResolver(customAuthorizationRequestResolver))
-                .userInfoEndpoint(userInfo -> userInfo
-                    .userService(customOAuth2UserService)
-                    .oidcUserService(customOidcUserService))
-                .successHandler((request, response, authentication) -> {
-                    response.sendRedirect("http://localhost:3000/index.html");
-                })
-                .failureHandler((request, response, exception) -> {
-                    String rawMessage = exception != null && exception.getMessage() != null
-                        ? exception.getMessage()
-                        : "Error OAuth2 desconocido";
-                    String safeMessage = rawMessage.length() > 600 ? rawMessage.substring(0, 600) : rawMessage;
-                    String encodedMessage = URLEncoder.encode(safeMessage, StandardCharsets.UTF_8);
-                    response.sendRedirect("/login?error=oauth2&message=" + encodedMessage);
-                })
-            
-                .defaultSuccessUrl("/index.html", true))
-            .logout(logout -> logout
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
-                .clearAuthentication(true)
-                .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
-                .logoutSuccessUrl("/index.html"));
+            .securityContext(context -> context
+                .securityContextRepository(
+                    new NullSecurityContextRepository()
+                )
+            )
 
-        return http.build();
+            // No guardar solicitudes para redirecciones.
+            .requestCache(cache -> cache
+                .requestCache(new NullRequestCache())
+            )
+
+            // Inventory no administra el login del navegador.
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .oauth2Login(AbstractHttpConfigurer::disable)
+            .logout(AbstractHttpConfigurer::disable)
+
+            .authorizeHttpRequests(auth -> auth
+
+                // Preflight.
+                .requestMatchers(
+                    HttpMethod.OPTIONS,
+                    "/**"
+                ).permitAll()
+
+                // Health check del ALB.
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/actuator/health"
+                ).permitAll()
+
+                // Toda la API interna de inventario:
+                // exclusivamente usuarios del grupo ADMIN.
+                .requestMatchers(
+                    INVENTORY_ROOT,
+                    INVENTORY_SUBPATH
+                ).hasRole(ADMIN_ROLE)
+
+                // Denegar rutas no declaradas.
+                .anyRequest().denyAll()
+            )
+
+            // JWT de Cognito validado en cada petición.
+            .oauth2ResourceServer(oauth -> oauth
+                .jwt(jwt -> jwt
+                    .jwtAuthenticationConverter(
+                        new CognitoAuthoritiesConverter()
+                    )
+                )
+            )
+
+            .build();
     }
 }

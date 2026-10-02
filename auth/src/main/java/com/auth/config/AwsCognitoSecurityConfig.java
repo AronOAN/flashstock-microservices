@@ -24,7 +24,12 @@ public class AwsCognitoSecurityConfig {
     JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,
                               @Value("${flashstock.cognito.client-id}") String clientId) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(issuer + "/.well-known/jwks.json").build();
-        OAuth2TokenValidator<Jwt> defaultValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        decoder.setJwtValidator(cognitoValidator(issuer, clientId));
+        return decoder;
+    }
+
+    static OAuth2TokenValidator<Jwt> cognitoValidator(String issuer, String clientId) {
+        OAuth2TokenValidator<Jwt> standard = JwtValidators.createDefaultWithIssuer(issuer);
         OAuth2TokenValidator<Jwt> accessTokenOnly = token -> {
             if (!"access".equals(token.getClaimAsString("token_use"))) {
                 return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Access token required", null));
@@ -34,8 +39,7 @@ public class AwsCognitoSecurityConfig {
             }
             return OAuth2TokenValidatorResult.success();
         };
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(defaultValidator, accessTokenOnly));
-        return decoder;
+        return new DelegatingOAuth2TokenValidator<>(standard, accessTokenOnly);
     }
 
     @Bean

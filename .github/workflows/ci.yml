@@ -215,6 +215,8 @@ jobs:
           test_binaries=()
           coverage=()
           junit_reports=()
+          java_libraries=()
+          test_libraries=()
 
           join_csv() {
             local IFS=,
@@ -235,6 +237,38 @@ jobs:
             mvn --batch-mode \
               -f "$service/pom.xml" \
               clean verify
+
+            # Build the exact Maven dependency classpaths for Sonar Java analysis.
+            # A scanner CLI does not infer these from pom.xml like SonarScanner for Maven.
+            mvn --batch-mode -f "$service/pom.xml" \
+              org.apache.maven.plugins:maven-dependency-plugin:3.7.1:build-classpath \
+              -DincludeScope=compile \
+              -Dmdep.outputFile="$PWD/$service/target/sonar-main-classpath.txt"
+            mvn --batch-mode -f "$service/pom.xml" \
+              org.apache.maven.plugins:maven-dependency-plugin:3.7.1:build-classpath \
+              -DincludeScope=test \
+              -Dmdep.outputFile="$PWD/$service/target/sonar-test-classpath.txt"
+
+            for scope in main test; do
+              classpath_file="$service/target/sonar-${scope}-classpath.txt"
+              if [ ! -s "$classpath_file" ]; then
+                echo "::error::Maven did not produce $classpath_file"
+                exit 1
+              fi
+              IFS=: read -r -a jars <<< "$(cat "$classpath_file")"
+              for jar in "${jars[@]}"; do
+                if [ -f "$jar" ]; then
+                  if [ "$scope" = main ]; then
+                    java_libraries+=("$jar")
+                  else
+                    test_libraries+=("$jar")
+                  fi
+                else
+                  echo "::error::Missing dependency from $classpath_file: $jar"
+                  exit 1
+                fi
+              done
+            done
 
             # Código fuente
             if [ -d "$service/src/main" ]; then
@@ -266,7 +300,8 @@ jobs:
               coverage+=("$REPORT")
               echo "JaCoCo encontrado: $REPORT"
             else
-              echo "::warning::Sin reporte JaCoCo para $service"
+              echo "::error::Sin reporte JaCoCo para $service"
+              exit 1
             fi
 
             # Resultados JUnit
@@ -299,6 +334,20 @@ jobs:
             echo "sonar.sources=$(join_csv "${sources[@]}")"
             echo "sonar.java.binaries=$(join_csv "${binaries[@]}")"
 
+            if [ "${#java_libraries[@]}" -eq 0 ] || [ "${#test_libraries[@]}" -eq 0 ]; then
+              echo "::error::Missing Java library classpath for Sonar"
+              exit 1
+            fi
+            # Sonar expects comma-separated jar paths, not Maven's colon-separated classpath.
+            echo "sonar.java.libraries=$(printf '%s\n' "${java_libraries[@]}" | sort -u | paste -sd, -)"
+            echo "sonar.java.test.libraries=$(printf '%s\n' "${test_libraries[@]}" | sort -u | paste -sd, -)"
+            echo "sonar.java.jdkHome=${JAVA_HOME}"
+
+            # CPD-only exceptions: four deployable services intentionally carry identical
+            # Cognito adapters. Still analyze them for rules AND JaCoCo coverage.
+            # Use shared module refactoring later only when build/Docker topology supports it.
+            echo "sonar.cpd.exclusions=**/common/AuthEmailResolver.java,**/config/CognitoAuthoritiesConverter.java,**/config/AwsCognitoSecurityConfig.java"
+
             if [ "${#tests[@]}" -gt 0 ]; then
               echo "sonar.tests=$(join_csv "${tests[@]}")"
             fi
@@ -319,8 +368,8 @@ jobs:
 
           } > sonar-project.properties
 
-          echo "Configuración SonarCloud preparada:"
-          cat sonar-project.properties
+          echo "Configuración SonarCloud preparada; dependencias Java y pruebas incluidas."
+          grep -E '^sonar\.(projectKey|sources|tests|coverage\.jacoco\.xmlReportPaths|qualitygate\.wait)=' sonar-project.properties
 
       # ==========================================
       # UN SOLO ANÁLISIS PARA TODO FLASHSTOCK

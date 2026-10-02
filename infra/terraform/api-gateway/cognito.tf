@@ -124,11 +124,11 @@ output "cognito_authorizer_id" {
 }
 
 # Optional Cognito Hosted UI domain; exact prefix chosen in terraform.tfvars.
-resource "aws_cognito_user_pool_domain" "flashstock" {
-  count        = var.cognito_domain_prefix == "" ? 0 : 1
-  domain       = var.cognito_domain_prefix
-  user_pool_id = aws_cognito_user_pool.flashstock.id
-}
+# El dominio flashstock-dev-aron ya existe en Cognito, pero NO aparece como recurso
+# aws_cognito_user_pool_domain en el state adjunto. No recrearlo ni importarlo de
+# forma automática para evitar conflictos o modificar Cognito durante esta fase.
+# Si más adelante se quiere gestionarlo con Terraform, importar explícitamente
+# el recurso y revisar el plan antes de volver a declararlo.
 output "cognito_domain_url" {
   value = var.cognito_domain_prefix == "" ? null : "https://${var.cognito_domain_prefix}.auth.${var.aws_region}.amazoncognito.com"
 }

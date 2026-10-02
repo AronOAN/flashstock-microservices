@@ -2723,6 +2723,8 @@
     }
 
     async function refreshStorefrontInventory() {
+        // Inventory is ADMIN-only; never poll it from the public storefront.
+        if (!isAdminSession()) return;
         if (inventoryEndpointUnavailable) return;
         try {
             const inventoryResp = await FlashStockApi.listInventory();

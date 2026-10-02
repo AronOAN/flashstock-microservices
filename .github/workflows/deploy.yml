@@ -91,8 +91,13 @@ jobs:
 
       - name: Install and validate
         run: |
-          pnpm install --frozen-lockfile
-          pnpm run lint
+          set -euo pipefail
+
+          test -f flashstock-frontend/package.json
+          test -f flashstock-frontend/pnpm-lock.yaml
+
+          pnpm --dir flashstock-frontend install --frozen-lockfile
+          pnpm --dir flashstock-frontend run lint
 
       - name: Deploy via Vercel CLI
         run: |
@@ -100,14 +105,12 @@ jobs:
 
           npm install --global vercel@latest
 
-          vercel pull --yes \
-            --environment=production \
-            --token "$VERCEL_TOKEN"
+          # Ejecutar desde la raíz del monorepositorio.
+          test -f flashstock-frontend/package.json
 
-          vercel build --prod --token "$VERCEL_TOKEN"
-
+          # Vercel utiliza el Root Directory configurado en el proyecto.
+          # La compilación ocurre remotamente, con variables Production.
           vercel deploy \
-            --prebuilt \
             --prod \
             --yes \
             --token "$VERCEL_TOKEN"

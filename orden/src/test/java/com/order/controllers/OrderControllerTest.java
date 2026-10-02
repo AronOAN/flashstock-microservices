@@ -13,6 +13,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
 
 import java.util.List;
 import java.util.Map;
@@ -135,7 +137,7 @@ class OrderControllerTest {
     private Authentication authWithRole(String role) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        doReturn(authorities).when(authentication).getAuthorities();
+        doReturn(List.of(new SimpleGrantedAuthority("ROLE_USER"))).when(authentication).getAuthorities();
         when(authentication.getName()).thenReturn("user@flashstock.com");
         when(authentication.getPrincipal()).thenReturn("user@flashstock.com");
         return authentication;

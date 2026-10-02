@@ -21,6 +21,7 @@ class AwsCognitoSecurityConfigTest {
             String issuer,
             Instant expiry
     ) {
+
         Instant issuedAt = Instant.now().minusSeconds(360);
 
         return Jwt.withTokenValue("synthetic-non-network-test")
@@ -36,6 +37,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void buildsDecoderWithoutNetworkValidation() {
+
         assertNotNull(
                 new AwsCognitoSecurityConfig()
                         .cognitoDecoder(ISSUER, CLIENT)
@@ -44,6 +46,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void acceptsCorrectAccessTokenClaims() {
+
         Jwt jwt = token(
                 "access",
                 CLIENT,
@@ -61,6 +64,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void rejectsIdToken() {
+
         Jwt jwt = token(
                 "id",
                 CLIENT,
@@ -78,6 +82,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void rejectsOtherClient() {
+
         Jwt jwt = token(
                 "access",
                 "different-client",
@@ -95,6 +100,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void rejectsOtherIssuer() {
+
         Jwt jwt = token(
                 "access",
                 CLIENT,
@@ -112,6 +118,7 @@ class AwsCognitoSecurityConfigTest {
 
     @Test
     void rejectsExpiredToken() {
+
         Jwt jwt = token(
                 "access",
                 CLIENT,

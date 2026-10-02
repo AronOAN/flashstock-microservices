@@ -103,6 +103,11 @@ public class AwsCognitoSecurityConfig {
     }
 
     @Bean
+    // S4502 reviewed: Inventory authenticates only explicit Cognito Bearer tokens.
+    // No HTTP session, browser login, Basic auth or cookie is an API credential.
+    // The Next.js BFF checks Origin before attaching Authorization on mutations.
+    // InventoryAwsSecurityWebTest rejects cookie-only writes and unauthorized roles.
+    @SuppressWarnings("java:S4502")
     SecurityFilterChain cognitoSecurityFilterChain(
             HttpSecurity http
     ) throws Exception {

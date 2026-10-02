@@ -57,6 +57,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    // S4502 reviewed: the local Inventory API also uses only explicit Bearer tokens.
+    // Browser cookies cannot authenticate; BFF validates Origin on mutations.
+    // InventoryLocalSecurityWebTest covers cookie-only and non-admin requests.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain filterChain(
             HttpSecurity http
     ) throws Exception {

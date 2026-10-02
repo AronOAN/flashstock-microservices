@@ -48,6 +48,10 @@ public class AwsCognitoSecurityConfig {
     }
 
     @Bean
+    // S4502 reviewed: only explicit Cognito Bearer tokens authenticate shipping.
+    // No browser session, Basic auth, form login or cookie authentication is enabled.
+    // Next.js checks Origin; ShippingAwsSecurityWebTest rejects cookie-only writes.
+    @SuppressWarnings("java:S4502")
     SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
             // Shipping accepts only explicit Bearer tokens, never browser session cookies.

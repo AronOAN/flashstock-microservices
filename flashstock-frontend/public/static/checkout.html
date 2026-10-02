@@ -95,7 +95,8 @@
                     </div>
                     <div class="modal-body d-flex align-items-center">
                         <div class="input-group w-75 mx-auto d-flex">
-                            <input type="search" class="form-control p-3" placeholder="keywords" aria-describedby="search-icon-1">
+                            <label class="visually-hidden" for="checkoutSearch">Buscar productos</label>
+                            <input id="checkoutSearch" type="search" class="form-control p-3" placeholder="keywords" aria-describedby="search-icon-1">
                             <span id="search-icon-1" class="input-group-text p-3"><i class="fa fa-search"></i></span>
                         </div>
                     </div>
@@ -127,43 +128,43 @@
                             <div class="row">
                                 <div class="col-md-12 col-lg-6">
                                     <div class="form-item w-100">
-                                        <label class="form-label my-3">Nombres<sup>*</sup></label>
+                                        <label class="form-label my-3" for="checkoutFirstName">Nombres<sup>*</sup></label>
                                         <input id="checkoutFirstName" type="text" class="form-control">
                                     </div>
                                 </div>
                                 <div class="col-md-12 col-lg-6">
                                     <div class="form-item w-100">
-                                        <label class="form-label my-3">Apellidos<sup>*</sup></label>
+                                        <label class="form-label my-3" for="checkoutLastName">Apellidos<sup>*</sup></label>
                                         <input id="checkoutLastName" type="text" class="form-control">
                                     </div>
                                 </div>
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Nombre de la Empresa<sup>*</sup></label>
-                                <input type="text" class="form-control">
+                                <label class="form-label my-3" for="checkoutCompany">Nombre de la Empresa<sup>*</sup></label>
+                                <input id="checkoutCompany" type="text" class="form-control">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Dirección <sup>*</sup></label>
+                                <label class="form-label my-3" for="checkoutAddress">Dirección <sup>*</sup></label>
                                 <input id="checkoutAddress" type="text" class="form-control" placeholder="House Number Street Name">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Ciudad<sup>*</sup></label>
-                                <input type="text" class="form-control">
+                                <label class="form-label my-3" for="checkoutCity">Ciudad<sup>*</sup></label>
+                                <input id="checkoutCity" type="text" class="form-control">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Pais<sup>*</sup></label>
-                                <input type="text" class="form-control">
+                                <label class="form-label my-3" for="checkoutCountry">País<sup>*</sup></label>
+                                <input id="checkoutCountry" type="text" class="form-control">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Zip Code<sup>*</sup></label>
-                                <input type="text" class="form-control">
+                                <label class="form-label my-3" for="checkoutPostalCode">Código postal<sup>*</sup></label>
+                                <input id="checkoutPostalCode" type="text" class="form-control">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Telefono Celular<sup>*</sup></label>
-                                <input type="tel" class="form-control">
+                                <label class="form-label my-3" for="checkoutPhone">Teléfono celular<sup>*</sup></label>
+                                <input id="checkoutPhone" type="tel" class="form-control">
                             </div>
                             <div class="form-item">
-                                <label class="form-label my-3">Direccion de Correo<sup>*</sup></label>
+                                <label class="form-label my-3" for="checkoutEmail">Dirección de correo<sup>*</sup></label>
                                 <input id="checkoutEmail" type="email" class="form-control">
                             </div>
                             <div class="form-check my-3">
@@ -176,7 +177,8 @@
                                 <label class="form-check-label" for="Address-1">Enviar a una dirección diferente?</label>
                             </div>
                             <div class="form-item">
-                                <textarea name="text" class="form-control" spellcheck="false" cols="30" rows="11" placeholder="Oreder Notes (Optional)"></textarea>
+                                <label class="visually-hidden" for="checkoutNotes">Notas del pedido</label>
+                                <textarea id="checkoutNotes" name="text" class="form-control" spellcheck="false" cols="30" rows="11" placeholder="Notas del pedido (opcional)"></textarea>
                             </div>
                         </div>
                         <div class="col-md-12 col-lg-6 col-xl-5">
@@ -421,7 +423,8 @@
                         </div>
                         <div class="col-lg-6">
                             <div class="position-relative mx-auto">
-                                <input class="form-control border-0 w-100 py-3 px-4 rounded-pill" type="number" placeholder="Su Email">
+                                <label class="visually-hidden" for="checkoutNewsletterEmail">Correo de suscripción</label>
+                                <input id="checkoutNewsletterEmail" class="form-control border-0 w-100 py-3 px-4 rounded-pill" type="email" placeholder="Tu correo">
                                 <button type="submit" class="btn btn-primary border-0 border-secondary py-3 px-4 position-absolute rounded-pill text-white" style="top: 0; right: 0;">Subscribete ahora</button>
                             </div>
                         </div>

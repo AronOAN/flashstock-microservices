@@ -103,7 +103,7 @@ jobs:
           cache-dependency-path: flashstock-frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Run Linter
         run: pnpm run lint
@@ -127,21 +127,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Node.js & Snyk
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Install Snyk CLI
-        run: npm install -g snyk
+      - name: Set up JDK 17 for Maven scanning
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install pinned Snyk CLI
+        uses: snyk/actions/setup@b075801f26076be9bb50521154cafab73f44da0c
+        with:
+          snyk-version: v1.1307.4
 
       - name: Run Snyk Security Test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          snyk auth $SNYK_TOKEN
-          snyk test --all-projects --severity-threshold=high || echo "Snyk encontró vulnerabilidades, revisa el reporte."
-          snyk test --all-projects --json > snyk-report.json || true
+        run: snyk test --all-projects --fail-fast --severity-threshold=high --json-file-output=snyk-report.json
 
       - name: Upload Snyk Report
         if: always()
@@ -364,7 +369,7 @@ jobs:
               echo "sonar.junit.reportPaths=$(join_csv "${junit_reports[@]}")"
             fi
 
-            echo "sonar.qualitygate.wait=false"
+            echo "sonar.qualitygate.wait=true"
 
           } > sonar-project.properties
 

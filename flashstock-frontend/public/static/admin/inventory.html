@@ -185,28 +185,36 @@
                     <h2 class="h5 mb-3">Crear SKU</h2>
                     <form id="createInventoryForm" class="row g-2">
                         <div class="col-md-4">
-                            <input class="form-control" type="text" name="sku" placeholder="SKU" required>
+                            <label class="form-label" for="createInventorySku">SKU</label>
+                            <input id="createInventorySku" class="form-control" type="text" name="sku" placeholder="SKU" required>
                         </div>
                         <div class="col-md-4">
-                            <input class="form-control" type="text" name="name" placeholder="Nombre producto" required>
+                            <label class="form-label" for="createInventoryName">Nombre producto</label>
+                            <input id="createInventoryName" class="form-control" type="text" name="name" placeholder="Nombre producto" required>
                         </div>
                         <div class="col-md-4">
-                            <input class="form-control" type="text" name="category" placeholder="Categoria (fruta, verdura...)" required>
+                            <label class="form-label" for="createInventoryCategory">Categoría</label>
+                            <input id="createInventoryCategory" class="form-control" type="text" name="category" placeholder="Categoria (fruta, verdura...)" required>
                         </div>
                         <div class="col-md-4">
-                            <input class="form-control" type="number" min="0" step="0.01" name="unitPrice" placeholder="Precio unitario" required>
+                            <label class="form-label" for="createInventoryPrice">Precio unitario</label>
+                            <input id="createInventoryPrice" class="form-control" type="number" min="0" step="0.01" name="unitPrice" placeholder="Precio unitario" required>
                         </div>
                         <div class="col-md-4">
-                            <input class="form-control" type="number" min="0" name="quantity" placeholder="Cantidad" required>
+                            <label class="form-label" for="createInventoryQuantity">Cantidad</label>
+                            <input id="createInventoryQuantity" class="form-control" type="number" min="0" name="quantity" placeholder="Cantidad" required>
                         </div>
                         <div class="col-md-4">
-                            <input class="form-control" type="text" name="warehouse" placeholder="Bodega" required>
+                            <label class="form-label" for="createInventoryWarehouse">Bodega</label>
+                            <input id="createInventoryWarehouse" class="form-control" type="text" name="warehouse" placeholder="Bodega" required>
                         </div>
                         <div class="col-md-6">
-                            <input class="form-control" type="url" name="imageUrl" placeholder="URL imagen producto">
+                            <label class="form-label" for="createInventoryImage">URL imagen producto</label>
+                            <input id="createInventoryImage" class="form-control" type="url" name="imageUrl" placeholder="URL imagen producto">
                         </div>
                         <div class="col-md-6">
-                            <input class="form-control" type="text" name="description" placeholder="Descripcion corta">
+                            <label class="form-label" for="createInventoryDescription">Descripción corta</label>
+                            <input id="createInventoryDescription" class="form-control" type="text" name="description" placeholder="Descripcion corta">
                         </div>
                         <div class="col-12">
                             <button class="btn btn-success" type="submit">Crear inventario</button>
@@ -219,10 +227,12 @@
                     <h2 class="h5 mb-3">Actualizar stock</h2>
                     <form id="updateQuantityForm" class="row g-2">
                         <div class="col-md-6">
-                            <input class="form-control" type="text" name="sku" placeholder="SKU" required>
+                            <label class="form-label" for="updateInventorySku">SKU</label>
+                            <input id="updateInventorySku" class="form-control" type="text" name="sku" placeholder="SKU" required>
                         </div>
                         <div class="col-md-6">
-                            <input class="form-control" type="number" min="0" name="quantity" placeholder="Nueva cantidad" required>
+                            <label class="form-label" for="updateInventoryQuantity">Nueva cantidad</label>
+                            <input id="updateInventoryQuantity" class="form-control" type="number" min="0" name="quantity" placeholder="Nueva cantidad" required>
                         </div>
                         <div class="col-12">
                             <button class="btn btn-primary" type="submit">Actualizar cantidad</button>

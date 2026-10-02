@@ -22,10 +22,6 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: flashstock-frontend
-
     env:
       AWS_API_BASE_URL: https://ly23z3a5hb.execute-api.us-east-1.amazonaws.com
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

@@ -22,12 +22,6 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
 public class AuthController {
 
-    @Value("${app.security.admin-email:}")
-    private String adminEmail;
-
-    @Value("${app.security.legacy-admin-email-enabled:false}")
-    private boolean legacyAdminEmailEnabled;
-
     @Value("${spring.security.oauth2.client.registration.google.client-id:}")
     private String googleClientId;
 
@@ -58,17 +52,10 @@ public class AuthController {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        boolean isAdminByRole = authorities.contains("ROLE_ADMIN");
+        boolean isAdmin = authorities.contains("ROLE_ADMIN");
         Identity identity = resolveIdentity(authentication);
         String email = identity.email();
         String displayName = identity.displayName();
-
-        boolean isAdminByEmail = legacyAdminEmailEnabled && adminEmail != null
-            && !adminEmail.isBlank()
-            && email != null
-            && email.equalsIgnoreCase(adminEmail);
-
-        boolean isAdmin = isAdminByRole || isAdminByEmail;
 
         return ApiResponse.<SessionUserResponse>builder()
                 .message("Sesion activa")

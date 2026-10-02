@@ -27,8 +27,6 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         controller = new AuthController();
-        ReflectionTestUtils.setField(controller, "adminEmail", "aron83353@gmail.com");
-        ReflectionTestUtils.setField(controller, "legacyAdminEmailEnabled", false);
         ReflectionTestUtils.setField(controller, "googleClientId", "google-client-id");
         ReflectionTestUtils.setField(controller, "microsoftClientId", "disabled-microsoft-client-id");
     }

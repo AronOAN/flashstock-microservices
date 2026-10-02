@@ -9,7 +9,6 @@ import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -30,8 +29,6 @@ class AdminMetricsControllerTest {
     void setUp() {
         metricsService = mock(AdminMetricsService.class);
         controller = new AdminMetricsController(metricsService);
-        ReflectionTestUtils.setField(controller, "adminEmail", "aron83353@gmail.com");
-        ReflectionTestUtils.setField(controller, "legacyAdminEmailEnabled", false);
     }
 
     @Test
@@ -51,7 +48,7 @@ class AdminMetricsControllerTest {
     }
 
     @Test
-    void metricsRejectsConfiguredEmailWithoutAdminRole() {
+    void metricsRejectsMatchingEmailWithoutAdminRole() {
         Authentication authentication = mock(Authentication.class);
         OAuth2User principal = mock(OAuth2User.class);
         when(authentication.isAuthenticated()).thenReturn(true);

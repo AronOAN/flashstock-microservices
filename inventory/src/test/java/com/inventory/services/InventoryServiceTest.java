@@ -11,6 +11,7 @@ import com.inventory.models.CustomerOrder;
 import com.inventory.models.Inventory;
 import com.inventory.models.Shipment;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -92,6 +93,51 @@ class InventoryServiceTest {
         var calls = inOrder(carts, inventory);
         calls.verify(carts).deleteBySku("SKU-1");
         calls.verify(inventory).deleteBySku("SKU-1");
+    }
+
+    @Test
+    void readsStockAfterReservationsAndUpdatesTheExistingSku() {
+        Inventory current = product("SKU-1", 6, true);
+        when(inventory.findBySku("SKU-1")).thenReturn(Optional.of(current));
+        when(carts.reservedUnitsBySku()).thenReturn(Map.of("SKU-1", 2));
+        when(inventory.save(current)).thenReturn(current);
+
+        assertEquals(4, service.findBySku("SKU-1").getQuantity());
+        assertEquals(9, service.updateQuantity("SKU-1", 9).getStock());
+        InventoryRequest replacement = new InventoryRequest();
+        replacement.setName("Nuevo nombre");
+        replacement.setPrice(new BigDecimal("19.90"));
+        replacement.setStock(5);
+        replacement.setActive(false);
+        InventoryResponse updated = service.updateProduct("SKU-1", replacement);
+        assertEquals(5, updated.getStock());
+        assertEquals(new BigDecimal("19.90"), updated.getUnitPrice());
+        assertEquals(false, updated.getActive());
+        assertEquals("Nuevo nombre", updated.getName());
+    }
+
+    @Test
+    void rejectsMissingSkuAndDatabaseConstraintsWithoutSilentlyOverwritingProduct() {
+        InventoryRequest request = new InventoryRequest();
+        request.setSku(" ");
+        assertThrows(IllegalArgumentException.class, () -> service.create(request));
+        request.setSku("SKU-1");
+        request.setUnitPrice(BigDecimal.ONE);
+        when(inventory.findBySku("SKU-1")).thenReturn(Optional.empty());
+        when(inventory.save(any(Inventory.class))).thenThrow(new DataIntegrityViolationException("duplicate key"));
+        assertThrows(IllegalStateException.class, () -> service.create(request));
+        assertThrows(IllegalArgumentException.class, () -> service.findBySku("UNKNOWN"));
+        assertThrows(IllegalArgumentException.class, () -> service.deleteBySku("UNKNOWN"));
+    }
+
+    @Test
+    void deletionReportsActiveForeignKeyReferences() {
+        when(inventory.findBySku("SKU-1")).thenReturn(Optional.of(product("SKU-1", 6, true)));
+        doThrow(new DataIntegrityViolationException("foreign key"))
+                .when(inventory).deleteBySku("SKU-1");
+        IllegalStateException conflict = assertThrows(IllegalStateException.class,
+                () -> service.deleteBySku("SKU-1"));
+        assertTrue(conflict.getMessage().contains("referencias activas"));
     }
 
     private Inventory product(String sku, int quantity, boolean active) {

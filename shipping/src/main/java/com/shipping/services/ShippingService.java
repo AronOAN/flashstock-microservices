@@ -385,7 +385,11 @@ public class ShippingService {
             if (isGoogleResultInChile(firstResult)) {
                 JsonNode location = firstResult.path("geometry").path("location");
                 if (location.has("lat") && location.has("lng")) {
-                    return new double[] {location.path("lat").asDouble(), location.path("lng").asDouble()};
+                    double lat = location.path("lat").asDouble();
+                    double lng = location.path("lng").asDouble();
+                    if (isChileCoordinate(lat, lng)) {
+                        return new double[] {lat, lng};
+                    }
                 }
             }
         } catch (InterruptedException interrupted) {

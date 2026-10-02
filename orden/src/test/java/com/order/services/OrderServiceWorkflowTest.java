@@ -10,6 +10,7 @@ import com.order.models.Inventory;
 import com.order.models.Shipment;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
@@ -85,6 +86,55 @@ class OrderServiceWorkflowTest {
                         .customerSub("owner").status("proceso").build()));
         assertEquals("ORD-1", service.findByOrderNumber("ORD-1", "owner", false).getOrderNumber());
         verify(orders, never()).findByOrderNumber(anyString());
+    }
+
+    @Test
+    void rejectsInactiveProductsAndNonPositiveQuantities() {
+        OrderRequest input = request(1);
+        Inventory inactive = Inventory.builder().id(12L).sku("SKU").quantity(5).active(false).build();
+        when(inventory.findByIdForUpdate(12L)).thenReturn(Optional.of(inactive));
+        assertThrows(IllegalStateException.class,
+                () -> service.create(input, "owner", "owner@example.test"));
+        inactive.setActive(true);
+        input.setQuantity(0);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create(input, "owner", "owner@example.test"));
+        verify(inventory, never()).save(any());
+        verifyNoInteractions(orders);
+    }
+
+    @Test
+    void invalidOrderStatusCannotOverwritePersistedState() {
+        CustomerOrder order = CustomerOrder.builder().orderNumber("ORD-1").status("proceso").build();
+        when(orders.findByOrderNumber("ORD-1")).thenReturn(Optional.of(order));
+        assertThrows(IllegalArgumentException.class, () -> service.updateStatus("ORD-1", "invalid"));
+        assertEquals("proceso", order.getStatus());
+        verify(orders, never()).save(any());
+        when(orders.save(order)).thenReturn(order);
+        assertEquals("enviado", service.updateStatus("ORD-1", " ENVIADO ").getStatus());
+    }
+
+    @Test
+    void confirmedOrderWithoutShipmentIsStillOwnedAndComplete() {
+        CustomerOrder order = CustomerOrder.builder().orderNumber("ORD-1").customerSub("owner")
+                .status("enviado").build();
+        when(orders.lockOwnedOrder("ORD-1", "owner")).thenReturn(Optional.of(order));
+        assertEquals("completado", service.confirmReceived("ORD-1", "owner").getStatus());
+        verify(shipments, never()).save(any());
+    }
+
+    @Test
+    void duplicateOrderNumberRetriesWithoutDoubleDecrementingStock() {
+        OrderRequest input = request(1);
+        Inventory product = Inventory.builder().id(12L).sku("SKU").quantity(5).active(true).build();
+        when(inventory.findByIdForUpdate(12L)).thenReturn(Optional.of(product));
+        when(orders.save(any(CustomerOrder.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"))
+                .thenAnswer(call -> call.getArgument(0));
+        assertEquals("proceso", service.create(input, "owner", null).getStatus());
+        assertEquals(4, product.getQuantity());
+        verify(inventory, times(1)).save(product);
+        verify(orders, times(2)).save(any(CustomerOrder.class));
     }
 
     private OrderRequest request(int quantity) {

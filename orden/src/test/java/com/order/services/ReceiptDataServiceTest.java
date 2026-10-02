@@ -70,4 +70,35 @@ class ReceiptDataServiceTest {
         assertEquals(BigDecimal.ZERO, receipt.getSubtotal());
         assertEquals(new BigDecimal("3"), receipt.getTotal());
     }
+
+    @Test
+    void rejectsMissingOwnerBlankNumbersAndExcessiveBatchBeforeDatabaseLookup() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.buildFromOrderNumbers(List.of("ORD-1"), " "));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.buildFromOrderNumbers(List.of(), "owner"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.buildFromOrderNumbers(List.of("ORD-1", "  "), "owner"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.buildFromOrderNumbers(java.util.Collections.nCopies(21, "ORD-1"), "owner"));
+        verifyNoInteractions(orders, inventory, shipments);
+    }
+
+    @Test
+    void unknownInventoryNeverCreatesPriceAndExistingCourierNameIsPreserved() {
+        CustomerOrder order = CustomerOrder.builder().orderNumber("ORD-1").customerSub("owner")
+                .sku("SKU").quantity(null).build();
+        when(orders.findByOrderNumberAndCustomerSub("ORD-1", "owner")).thenReturn(Optional.of(order));
+        when(inventory.findBySku("SKU")).thenReturn(Optional.of(
+                Inventory.builder().sku("SKU").name("Producto").build()));
+        when(shipments.findByOrderNumber("ORD-1")).thenReturn(Optional.of(
+                Shipment.builder().orderNumber("ORD-1").carrier("DHL")
+                        .courierName("Ana").status("enviado").build()));
+
+        ReceiptEmailRequest receipt = service.buildFromOrderNumbers(List.of("ORD-1"), "owner");
+
+        assertEquals(BigDecimal.ZERO, receipt.getItems().get(0).getLineTotal());
+        assertEquals("Ana", receipt.getShipments().get(0).getCourierName());
+        assertNotNull(receipt.getCreatedAt());
+    }
 }

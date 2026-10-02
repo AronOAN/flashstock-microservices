@@ -20,9 +20,6 @@ jobs:
           - service: auth
             path: auth
             port: 8081
-          - service: gateway
-            path: gateway
-            port: 8080
           - service: inventory
             path: inventory
             port: 8082

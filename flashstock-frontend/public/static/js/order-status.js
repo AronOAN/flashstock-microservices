@@ -26,7 +26,7 @@
         });
 
         if (!response.ok) {
-            let message = "";
+            let message;
             try {
                 const payload = await response.json();
                 message = payload?.data || payload?.message || "";
@@ -241,7 +241,7 @@
     }
 
     function drawRoute(map, data) {
-        let points = [];
+        let points;
         try {
             const parsed = JSON.parse(data.routeGeoJson || "{}");
             points = Array.isArray(parsed?.geometry?.coordinates)
@@ -388,11 +388,11 @@
     }
 
     async function refreshOrders() {
-        let rows = [];
+        let rows;
         try {
             rows = await fetchOrdersForRole();
             renderOrdersList(rows);
-        } catch (error) {
+        } catch {
             const list = document.getElementById("statusOrdersList");
             if (list) {
                 list.innerHTML = "<div class='text-muted'>No se pudo cargar pedidos. Puedes buscar por tracking.</div>";

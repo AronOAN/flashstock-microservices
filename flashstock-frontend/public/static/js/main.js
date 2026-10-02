@@ -87,18 +87,17 @@
             $videoSrc = $(this).data("src");
         });
 
-        $('#videoModal').on('shown.bs.modal', function (e) {
+        $('#videoModal').on('shown.bs.modal', function () {
             $("#video").attr('src', $videoSrc + "?autoplay=1&amp;modestbranding=1&amp;showinfo=0");
         })
 
-        $('#videoModal').on('hide.bs.modal', function (e) {
+        $('#videoModal').on('hide.bs.modal', function () {
             $("#video").attr('src', $videoSrc);
         })
     });
 
     // FlashStock API integration
     const API_BASE = window.FLASHSTOCK_API_BASE
-        || (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_BASE_URL)
         || '';
     const CART_STORAGE_KEY = 'flashstock_cart_v2';
     const SHIPPING_ADDRESS_KEY = 'flashstock_shipping_address';
@@ -143,11 +142,11 @@
         });
 
         if (!response.ok) {
-            let apiMessage = '';
+            let apiMessage;
             try {
                 const errorPayload = await response.json();
                 apiMessage = errorPayload?.data || errorPayload?.message || '';
-            } catch (e) {
+            } catch {
                 apiMessage = '';
             }
 
@@ -376,7 +375,7 @@
         try {
             const rows = await fetchOrdersForCurrentRole();
             updateOrderTrackingShortcut(countActiveInTransitOrders(rows));
-        } catch (error) {
+        } catch {
             updateOrderTrackingShortcut(0);
         }
     }
@@ -407,7 +406,7 @@
                 window.location.href = `${ORDER_STATUS_PAGE}?from=delivery&active=${activeCount}`;
                 return true;
             }
-        } catch (error) {
+        } catch {
             return false;
         }
 
@@ -666,7 +665,7 @@
     function parseSafeJson(text, fallback) {
         try {
             return JSON.parse(text);
-        } catch (e) {
+        } catch {
             return fallback;
         }
     }
@@ -716,7 +715,7 @@
                 imageUrl: item.imageUrl || 'img/vegetable-item-2.jpg'
             })).filter((item) => item.quantity > 0);
             saveCart(local);
-        } catch (error) {
+        } catch {
             // Keep storefront available even if cart backend is temporarily unavailable.
         }
     }
@@ -759,7 +758,7 @@
                 imageUrl: item.imageUrl || 'img/vegetable-item-2.jpg'
             })).filter((item) => item.quantity > 0);
             saveCart(local);
-        } catch (error) {
+        } catch {
             showToast('No se pudo sincronizar el carrito con tu cuenta.', 'error');
         }
     }
@@ -868,7 +867,7 @@
             }
             return cartItem.sku === item.sku;
         });
-        let finalQty = requestedQty;
+        let finalQty;
 
         if (index >= 0) {
             const mergedQty = Number(cart[index].quantity || 0) + requestedQty;
@@ -1321,7 +1320,7 @@
 
     async function refreshCartRealtime() {
         let cart;
-        let inventoryMap = new Map();
+        let inventoryMap;
 
         if (isAuthenticatedUser()) {
             cart = await getBackendCartAsLocalModel();
@@ -2248,7 +2247,7 @@
                     if (receipt) {
                         saveReceipt(receipt);
                     }
-                } catch (error) {
+                } catch {
                     receipt = null;
                 }
             }
@@ -2270,7 +2269,7 @@
                         saveReceipt(receipt);
                     }
                 }
-            } catch (error) {
+            } catch {
                 receipt = null;
             }
         }
@@ -2477,13 +2476,13 @@
         const courier = { lat: Number(data.courierLat), lng: Number(data.courierLng) };
         const orderPin = { lat: (origin.lat + destination.lat) / 2, lng: (origin.lng + destination.lng) / 2 };
 
-        let route = [];
+        let route;
         try {
             const parsed = JSON.parse(data.routeGeoJson || '{}');
             route = Array.isArray(parsed?.geometry?.coordinates)
                 ? parsed.geometry.coordinates.map((pair) => ({ lat: Number(pair[1]), lng: Number(pair[0]) }))
                 : [];
-        } catch (e) {
+        } catch {
             route = [];
         }
 
@@ -2654,7 +2653,7 @@
         try {
             const first = await FlashStockApi.getAdminMetrics();
             renderAdminMetricWidget(first.data || {});
-        } catch (e) {
+        } catch {
             return;
         }
 
@@ -2662,7 +2661,7 @@
             try {
                 const resp = await FlashStockApi.getAdminMetrics();
                 renderAdminMetricWidget(resp.data || {});
-            } catch (e) {
+            } catch {
                 const widget = document.getElementById('adminLiveWidget');
                 if (widget) {
                     widget.style.display = 'none';
@@ -2708,7 +2707,7 @@
             }
 
             startAdminRealtimeWidget();
-        } catch (error) {
+        } catch {
             // Keep storefront usable even if auth endpoint is unavailable.
         }
     }
@@ -2758,7 +2757,7 @@
                 }
                 logoutLink.style.display = 'none';
             }
-        } catch (error) {
+        } catch {
             currentSession = null;
             userLink.href = '/static/login.html';
             userLink.title = 'Iniciar sesion';
@@ -2777,7 +2776,7 @@
             renderInventoryOnTemplate(inventoryItems);
             normalizeCart(inventoryItems);
             updateCartBadge();
-        } catch (error) {
+        } catch {
             // Keep current catalog rendered if one realtime refresh fails.
         }
     }

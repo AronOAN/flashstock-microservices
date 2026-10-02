@@ -22,7 +22,7 @@
         });
 
         if (!response.ok) {
-            let message = "";
+            let message;
             try {
                 const payload = await response.json();
                 message = payload?.data || payload?.message || "";
@@ -117,7 +117,7 @@
     }
 
     function parseRoute(routeGeoJson, origin, destination) {
-        let points = [];
+        let points;
         try {
             const parsed = JSON.parse(routeGeoJson || "{}");
             points = Array.isArray(parsed?.geometry?.coordinates)

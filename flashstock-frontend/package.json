@@ -10,13 +10,13 @@
     "test:security": "node --test tests/*.test.cjs"
   },
   "dependencies": {
-    "next": "16.2.6",
+    "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@next/eslint-plugin-next": "16.2.6",
+    "@next/eslint-plugin-next": "16.3.8",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

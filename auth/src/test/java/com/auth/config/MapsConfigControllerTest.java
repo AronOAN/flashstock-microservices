@@ -23,7 +23,7 @@ class MapsConfigControllerTest {
     void returnsPublicMapConfigWithTrimmedKey() {
         var response = controller.getPublicMapConfig();
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         ApiResponse<Map<String, String>> body = response.getBody();
         assertEquals("Configuracion de mapas", body.getMessage());
         assertEquals("google", body.getData().get("provider"));

@@ -133,7 +133,7 @@ class OrderControllerTest {
     private Authentication authWithRole(String role) {
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getAuthorities()).thenReturn(List.of((GrantedAuthority) () -> role));
+        doReturn(authorities).when(authentication).getAuthorities();
         when(authentication.getName()).thenReturn("user@flashstock.com");
         when(authentication.getPrincipal()).thenReturn("user@flashstock.com");
         return authentication;
@@ -143,7 +143,7 @@ class OrderControllerTest {
         Authentication authentication = mock(Authentication.class);
         OAuth2User principal = mock(OAuth2User.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getAuthorities()).thenReturn(adminRole ? List.of((GrantedAuthority) () -> "ROLE_ADMIN") : List.of());
+        doReturn(adminRole ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN")) : List.of()).when(authentication).getAuthorities();
         when(authentication.getName()).thenReturn(email);
         when(authentication.getPrincipal()).thenReturn(principal);
         when(principal.getAttributes()).thenReturn(Map.of("email", email));

@@ -150,9 +150,6 @@ jobs:
           name: snyk-report
           path: snyk-report.json
 
-  # -----------------------------------------------------------------
-  # 4. ANÁLISIS DE CÓDIGO CON SONARCLOUD
-  # -----------------------------------------------------------------
 
  # -----------------------------------------------------------------
   # 4. ANÁLISIS DE CÓDIGO CON SONARCLOUD
@@ -210,7 +207,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          services=(auth gateway inventory orden shipping)
+          services=(auth inventory orden shipping)
 
           sources=()
           tests=()

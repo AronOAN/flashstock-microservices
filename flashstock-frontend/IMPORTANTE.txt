@@ -1,0 +1,1 @@
+ADVERTENCIA: frontend/ es parche del frontend que ya existe en GitHub, no frontend autonomo. Consulte README.md

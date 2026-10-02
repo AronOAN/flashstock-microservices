@@ -1,277 +1,61 @@
+name: FlashStock Deploy (AWS + Vercel)
 
-name: FlashStock Deploy
-
+# MANUAL ONLY until the four Java backends are hosted and API Gateway has working routes.
+# This repository currently DOES NOT contain a runnable AWS ECS deployment.
 on:
   workflow_dispatch:
+    inputs:
+      backend_ready:
+        description: 'I have deployed all required Java services and verified API Gateway /api/inventory responds HTTP 200'
+        required: true
+        default: false
+        type: boolean
 
-  push:
-    branches:
-      - main
-    paths:
-      - "auth/**"
-      - "inventory/**"
-      - "orden/**"
-      - "shipping/**"
-      - "gateway/**"
-      - "docker-compose.yml"
-      - "flashstock-frontend/**"
-      - ".github/workflows/deploy.yml"
+permissions:
+  contents: read
 
 jobs:
-
-  # =====================================================
-  # 1. DEPLOY GATEWAY A GOOGLE CLOUD RUN
-  # =====================================================
-
-  gateway-cloud-run:
-    name: Deploy Gateway to Cloud Run
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      id-token: write
-
-    outputs:
-      gateway_url: ${{ steps.deploy_gateway.outputs.gateway_url }}
-
-    env:
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      GCP_REGION: ${{ secrets.GCP_REGION }}
-      GATEWAY_SERVICE_NAME: ${{ secrets.GATEWAY_SERVICE_NAME }}
-
-    steps:
-
-      # ==========================================
-      # CHECKOUT
-      # ==========================================
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ==========================================
-      # VALIDAR CONFIGURACION GCP
-      # ==========================================
-
-      - name: Validate GCP configuration
-        shell: bash
-        env:
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-        run: |
-          set -euo pipefail
-
-          for var in \
-            GCP_PROJECT_ID \
-            GCP_REGION \
-            GATEWAY_SERVICE_NAME \
-            GCP_WORKLOAD_IDENTITY_PROVIDER \
-            GCP_SERVICE_ACCOUNT
-          do
-            if [ -z "${!var:-}" ]; then
-              echo "::error::$var no está configurado"
-              exit 1
-            fi
-          done
-
-          echo "Configuracion GCP validada."
-
-      # ==========================================
-      # AUTENTICACION GCP MEDIANTE WIF
-      # ==========================================
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          create_credentials_file: true
-
-      # ==========================================
-      # CONFIGURAR GCLOUD
-      # ==========================================
-
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      # ==========================================
-      # DEPLOY GATEWAY
-      # ==========================================
-
-      - name: Deploy gateway
-        id: deploy_gateway
-        shell: bash
-
-        run: |
-          set -euo pipefail
-
-          gcloud config set project "$GCP_PROJECT_ID"
-
-          echo "Desplegando gateway: $GATEWAY_SERVICE_NAME"
-          echo "Region: $GCP_REGION"
-
-          gcloud run deploy "$GATEWAY_SERVICE_NAME" \
-            --source ./gateway \
-            --region "$GCP_REGION" \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 8080 \
-            --quiet
-
-          # Obtener URL publica del gateway
-
-          GATEWAY_URL=$(gcloud run services describe \
-            "$GATEWAY_SERVICE_NAME" \
-            --region "$GCP_REGION" \
-            --format='value(status.url)')
-
-          # Validar URL
-
-          if [[ "$GATEWAY_URL" != https://* ]]; then
-            echo "::error::No se obtuvo una URL HTTPS valida de Cloud Run"
-            exit 1
-          fi
-
-          # Publicar URL para el siguiente job
-
-          echo "gateway_url=$GATEWAY_URL" >> "$GITHUB_OUTPUT"
-
-          echo "Gateway desplegado correctamente."
-          echo "URL: $GATEWAY_URL"
-
-      # ==========================================
-      # MOSTRAR RESULTADO
-      # ==========================================
-
-      - name: Print public URL
-        run: |
-          echo "Gateway URL: ${{ steps.deploy_gateway.outputs.gateway_url }}"
-
-  # =====================================================
-  # 2. DEPLOY FRONTEND A VERCEL
-  # =====================================================
-
   frontend-vercel:
-    name: Deploy Frontend to Vercel
+    name: Verify API and deploy existing Vercel project
+    if: ${{ inputs.backend_ready == true && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-
-    needs:
-      - gateway-cloud-run
-
-    permissions:
-      contents: read
-
     defaults:
       run:
         working-directory: flashstock-frontend
-
     env:
-      FLASHSTOCK_API_BASE_URL: ${{ needs.gateway-cloud-run.outputs.gateway_url }}
+      AWS_API_BASE_URL: https://ly23z3a5hb.execute-api.us-east-1.amazonaws.com
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
     steps:
-
-      # ==========================================
-      # CHECKOUT
-      # ==========================================
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ==========================================
-      # VALIDAR CONFIGURACION VERCEL
-      # ==========================================
-
-      - name: Validate deployment configuration
+      - uses: actions/checkout@v4
+      - name: Validate prerequisites
         shell: bash
-
         run: |
           set -euo pipefail
-
-          for var in \
-            FLASHSTOCK_API_BASE_URL \
-            VERCEL_ORG_ID \
-            VERCEL_PROJECT_ID \
-            VERCEL_TOKEN
-          do
-            if [ -z "${!var:-}" ]; then
-              echo "::error::$var no está configurado"
-              exit 1
-            fi
+          for name in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+            if [ -z "${!name:-}" ]; then echo "::error::$name missing"; exit 1; fi
           done
-
-          if [[ "$FLASHSTOCK_API_BASE_URL" != https://* ]]; then
-            echo "::error::La URL del gateway debe utilizar HTTPS"
-            exit 1
-          fi
-
-          echo "Configuracion Vercel validada."
-
-      # ==========================================
-      # INSTALAR PNPM
-      # ==========================================
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+          # Public inventory must be routed to a functioning backend. A 404/502 stops deployment.
+          curl --fail --silent --show-error --location \
+            --max-time 20 "${AWS_API_BASE_URL}/api/inventory" -o /dev/null
+      - uses: pnpm/action-setup@v4
         with:
           version: 10
-
-      # ==========================================
-      # CONFIGURAR NODE
-      # ==========================================
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
           cache: pnpm
           cache-dependency-path: flashstock-frontend/pnpm-lock.yaml
-
-      # ==========================================
-      # INSTALAR DEPENDENCIAS
-      # ==========================================
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # ==========================================
-      # CONFIGURACION PUBLICA DEL NAVEGADOR
-      # ==========================================
-
-      - name: Configure frontend API routes
-        shell: bash
-
+      - name: Install and validate
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+      - name: Deploy via Vercel CLI
         run: |
           set -euo pipefail
-
-          # El navegador utilizara rutas relativas.
-          # Next.js enviara las solicitudes /api al gateway
-          # mediante los rewrites de next.config.ts.
-
-          printf 'window.FLASHSTOCK_API_BASE = "";\n' \
-            > public/runtime-config.js
-
-          echo "Runtime configuration preparada."
-
-      # ==========================================
-      # DEPLOY A VERCEL
-      # ==========================================
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-
-          working-directory: flashstock-frontend
-
-          vercel-args: >-
-            --prod
-            --build-env=FLASHSTOCK_API_BASE_URL=${{ needs.gateway-cloud-run.outputs.gateway_url }}
+          npm install --global vercel@latest
+          vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+          # BFF secrets and backend URL MUST be in Vercel Project Settings -> Environment Variables.
+          vercel build --prod --token "$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"

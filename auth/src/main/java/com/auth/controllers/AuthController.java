@@ -7,6 +7,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +24,9 @@ public class AuthController {
 
     @Value("${app.security.admin-email:}")
     private String adminEmail;
+
+    @Value("${app.security.legacy-admin-email-enabled:true}")
+    private boolean legacyAdminEmailEnabled;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id:}")
     private String googleClientId;
@@ -79,7 +83,14 @@ public class AuthController {
             }
         }
 
-        boolean isAdminByEmail = adminEmail != null
+        if (principal instanceof Jwt jwt) {
+            String jwtEmail = jwt.getClaimAsString("email");
+            email = jwtEmail != null && !jwtEmail.isBlank() ? jwtEmail : null;
+            String name = jwt.getClaimAsString("username");
+            displayName = name == null || name.isBlank() ? "Usuario" : name;
+        }
+
+        boolean isAdminByEmail = legacyAdminEmailEnabled && adminEmail != null
             && !adminEmail.isBlank()
             && email != null
             && email.equalsIgnoreCase(adminEmail);

@@ -2,6 +2,7 @@ package com.order.common;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 public final class AuthEmailResolver {
 
@@ -13,6 +14,11 @@ public final class AuthEmailResolver {
             return null;
         }
 
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String email = jwtAuth.getToken().getClaimAsString("email");
+            // Cognito access tokens do NOT guarantee an email claim. Do not treat sub as email.
+            return isNonBlank(email) ? email : null;
+        }
         Object principal = authentication.getPrincipal();
         if (principal instanceof OAuth2User oauth2User) {
             String email = claim(oauth2User, "email");

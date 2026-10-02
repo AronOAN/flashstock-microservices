@@ -1,0 +1,18 @@
+# Ejemplo. Ajusta la region de AWS que realmente usaras.
+aws_region         = "us-east-1"
+project_name       = "flashstock"
+environment        = "dev"
+log_retention_days = 14
+
+# Solo agrega la URL REAL de tu Vercel, sin slash final.
+vercel_site_url       = ""
+# Dejar vacio hasta elegir dominio REAL disponible en Cognito.
+cognito_domain_prefix = ""
+
+# AWS Academy: no se crearan recursos Lambda sin rol EXISTENTE y PassRole.
+enable_permissions_lambda           = false
+permission_lambda_execution_role_arn = ""
+# Rutas negocio solo tras ALB, VPC Link y backends funcionales.
+enable_business_routes   = false
+existing_vpc_link_id      = ""
+existing_alb_listener_arn = ""

@@ -25,6 +25,9 @@ public class AdminMetricsController {
     @Value("${app.security.admin-email:}")
     private String adminEmail;
 
+    @Value("${app.security.legacy-admin-email-enabled:true}")
+    private boolean legacyAdminEmailEnabled;
+
     @GetMapping("/metrics")
     public ApiResponse<AdminMetricsResponse> metrics(Authentication authentication) {
         if (!isAdmin(authentication)) {
@@ -54,7 +57,7 @@ public class AdminMetricsController {
             email = getBestEmail(oauth2User, email);
         }
 
-        return adminEmail != null
+        return legacyAdminEmailEnabled && adminEmail != null
                 && !adminEmail.isBlank()
                 && email != null
                 && email.equalsIgnoreCase(adminEmail);

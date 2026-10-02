@@ -1,0 +1,17 @@
+# Add these values to YOUR EXISTING terraform.tfvars. Do not replace the real file.
+# Existing values aws_region="us-east-1", project_name="flashstock", environment="dev" remain unchanged.
+
+# Cognito Hosted UI prefix must be unique/available; this is an EXAMPLE not a checked live name.
+cognito_domain_prefix = "YOUR-UNIQUE-FLASHSTOCK-PREFIX"
+# Set the exact production Vercel domain/origin (NOT localhost).
+vercel_site_url = "https://YOUR-REAL-FRONTEND.vercel.app"
+
+# AWS Academy IAM limitation: keep false until an EXISTING execution role is identified
+# and iam:PassRole, lambda:CreateFunction and lambda:AddPermission are allowed.
+enable_permissions_lambda = false
+permission_lambda_execution_role_arn = ""
+
+# Enable only after ECS services, internal ALB and ACTIVE VPC Link exist.
+enable_business_routes = false
+existing_vpc_link_id       = ""
+existing_alb_listener_arn  = ""

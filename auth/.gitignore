@@ -36,3 +36,7 @@ build/
 .env.local
 .env.*.local
 *.env
+# Never publish local secrets or build output
+.env
+.env.*
+target/

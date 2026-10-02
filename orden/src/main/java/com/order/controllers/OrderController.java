@@ -29,6 +29,9 @@ public class OrderController {
     @Value("${app.security.admin-email:}")
     private String adminEmail;
 
+    @Value("${app.security.legacy-admin-email-enabled:true}")
+    private boolean legacyAdminEmailEnabled;
+
     @GetMapping
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAll() {
         return ResponseEntity.ok(ApiResponse.<List<OrderResponse>>builder().message("Pedidos listados").data(service.findAll()).build());
@@ -114,7 +117,7 @@ public class OrderController {
         }
 
         String email = AuthEmailResolver.resolve(authentication);
-        return adminEmail != null
+        return legacyAdminEmailEnabled && adminEmail != null
                 && !adminEmail.isBlank()
                 && email != null
                 && email.equalsIgnoreCase(adminEmail);

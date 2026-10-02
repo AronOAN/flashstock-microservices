@@ -64,8 +64,9 @@ class OrderOwnershipTest {
                 .thenReturn(Optional.of(CustomerOrder.builder().orderNumber("ORD-1").build()));
         when(orders.findByOrderNumberAndCustomerSub("ORD-2", "owner-sub"))
                 .thenReturn(Optional.empty());
+        List<String> orderNumbers = List.of("ORD-1", "ORD-2");
         assertThrows(IllegalArgumentException.class,
-                () -> receipts.buildFromOrderNumbers(List.of("ORD-1", "ORD-2"), "owner-sub"));
+                () -> receipts.buildFromOrderNumbers(orderNumbers, "owner-sub"));
         verify(orders, never()).findByOrderNumber(anyString());
     }
 }

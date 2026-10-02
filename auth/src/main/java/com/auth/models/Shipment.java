@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "shipments")
@@ -72,8 +73,8 @@ public class Shipment {
     @PreUpdate
     private void touchLastUpdate() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
         }
-        this.lastUpdate = LocalDateTime.now();
+        this.lastUpdate = LocalDateTime.now(ZoneOffset.UTC);
     }
 }

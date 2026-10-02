@@ -109,9 +109,8 @@ public class AwsCognitoSecurityConfig {
 
         return http
 
-            // Backend exclusivamente Bearer.
-            // El BFF es quien gestiona las cookies y PKCE.
-            .csrf(AbstractHttpConfigurer::disable)
+            // Only explicit Bearer credentials authenticate this stateless API.
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
 
             // No crear ni utilizar sesiones HTTP
             // para almacenar autenticaciones.

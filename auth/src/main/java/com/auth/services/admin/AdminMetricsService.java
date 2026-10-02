@@ -7,6 +7,7 @@ import com.auth.daos.ShipmentDao;
 import com.auth.dtos.AdminMetricsResponse;
 import com.auth.dtos.AdminSkuMetricResponse;
 import com.auth.models.CustomerOrder;
+import com.auth.models.Shipment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,9 +53,6 @@ public class AdminMetricsService {
 
         int totalStock = inventories.stream().mapToInt(i -> i.getQuantity() == null ? 0 : i.getQuantity()).sum();
 
-        int lowRisk = 0;
-        int criticalRisk = 0;
-
         List<AdminSkuMetricResponse> skuMetrics = inventories.stream().map(inventory -> {
             int stock = inventory.getQuantity() == null ? 0 : inventory.getQuantity();
             int ordered = orderedBySku.getOrDefault(inventory.getSku(), 0);
@@ -70,45 +69,10 @@ public class AdminMetricsService {
                     .build();
         }).toList();
 
-        for (AdminSkuMetricResponse metric : skuMetrics) {
-            if ("CRITICAL".equals(metric.getRiskLevel())) {
-                criticalRisk++;
-            } else if ("LOW".equals(metric.getRiskLevel())) {
-                lowRisk++;
-            }
-        }
-
-        int createdOrders = 0;
-        int completedOrders = 0;
-        int cancelledOrders = 0;
-
-        for (CustomerOrder order : orders) {
-            String normalizedStatus = normalize(order.getStatus());
-            if (normalizedStatus.contains("CANCEL")) {
-                cancelledOrders++;
-            } else if (normalizedStatus.contains("COMPLETE") || normalizedStatus.contains("PAID") || normalizedStatus.contains("CLOSED")) {
-                completedOrders++;
-            } else {
-                createdOrders++;
-            }
-        }
-
-        int preparingShipments = 0;
-        int inTransitShipments = 0;
-        int deliveredShipments = 0;
-        Set<String> deliveredOrderNumbers = new HashSet<>();
-
-        for (var shipment : shipments) {
-            String normalizedStatus = normalize(shipment.getStatus());
-            if (normalizedStatus.contains("DELIVER")) {
-                deliveredShipments++;
-                deliveredOrderNumbers.add(shipment.getOrderNumber());
-            } else if (normalizedStatus.contains("TRANSIT") || normalizedStatus.contains("SHIPPED")) {
-                inTransitShipments++;
-            } else {
-                preparingShipments++;
-            }
-        }
+        RiskCounts risk = countRisks(skuMetrics);
+        OrderCounts orderCounts = countOrders(orders);
+        ShipmentCounts shipmentCounts = countShipments(shipments);
+        Set<String> deliveredOrderNumbers = shipmentCounts.deliveredOrderNumbers();
 
         double grossCashflow = orders.stream()
                 .mapToDouble(order -> (order.getQuantity() == null ? 0 : order.getQuantity()) * unitValue)
@@ -122,25 +86,69 @@ public class AdminMetricsService {
         double pendingCashflow = Math.max(grossCashflow - realizedCashflow, 0);
 
         return AdminMetricsResponse.builder()
-                .timestamp(LocalDateTime.now().toString())
+                .timestamp(LocalDateTime.now(ZoneOffset.UTC).toString())
                 .inventorySkuCount(inventories.size())
                 .totalStock(totalStock)
-                .lowRiskSkuCount(lowRisk)
-                .criticalRiskSkuCount(criticalRisk)
+                .lowRiskSkuCount(risk.low())
+                .criticalRiskSkuCount(risk.critical())
                 .totalOrders(orders.size())
-                .createdOrders(createdOrders)
-                .completedOrders(completedOrders)
-                .cancelledOrders(cancelledOrders)
+                .createdOrders(orderCounts.created())
+                .completedOrders(orderCounts.completed())
+                .cancelledOrders(orderCounts.cancelled())
                 .totalShipments(shipments.size())
-                .preparingShipments(preparingShipments)
-                .inTransitShipments(inTransitShipments)
-                .deliveredShipments(deliveredShipments)
+                .preparingShipments(shipmentCounts.preparing())
+                .inTransitShipments(shipmentCounts.inTransit())
+                .deliveredShipments(shipmentCounts.delivered())
                 .grossCashflow(roundMoney(grossCashflow))
                 .realizedCashflow(roundMoney(realizedCashflow))
                 .pendingCashflow(roundMoney(pendingCashflow))
                 .skuMetrics(skuMetrics)
                 .build();
     }
+
+    private RiskCounts countRisks(List<AdminSkuMetricResponse> metrics) {
+        int low = 0;
+        int critical = 0;
+        for (AdminSkuMetricResponse metric : metrics) {
+            if ("CRITICAL".equals(metric.getRiskLevel())) critical++;
+            else if ("LOW".equals(metric.getRiskLevel())) low++;
+        }
+        return new RiskCounts(low, critical);
+    }
+
+    private OrderCounts countOrders(List<CustomerOrder> orders) {
+        int created = 0;
+        int completed = 0;
+        int cancelled = 0;
+        for (CustomerOrder order : orders) {
+            String status = normalize(order.getStatus());
+            if (status.contains("CANCEL")) cancelled++;
+            else if (isCompletedOrder(status)) completed++;
+            else created++;
+        }
+        return new OrderCounts(created, completed, cancelled);
+    }
+
+    private ShipmentCounts countShipments(List<Shipment> shipments) {
+        int preparing = 0;
+        int inTransit = 0;
+        int delivered = 0;
+        Set<String> deliveredOrderNumbers = new HashSet<>();
+        for (Shipment shipment : shipments) {
+            String status = normalize(shipment.getStatus());
+            if (status.contains("DELIVER")) {
+                delivered++;
+                deliveredOrderNumbers.add(shipment.getOrderNumber());
+            } else if (status.contains("TRANSIT") || status.contains("SHIPPED")) inTransit++;
+            else preparing++;
+        }
+        return new ShipmentCounts(preparing, inTransit, delivered, deliveredOrderNumbers);
+    }
+
+    private record RiskCounts(int low, int critical) { }
+    private record OrderCounts(int created, int completed, int cancelled) { }
+    private record ShipmentCounts(int preparing, int inTransit, int delivered,
+                                  Set<String> deliveredOrderNumbers) { }
 
     private boolean isCompletedOrder(String status) {
         String normalized = normalize(status);

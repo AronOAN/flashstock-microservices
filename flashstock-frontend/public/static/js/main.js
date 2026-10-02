@@ -2574,12 +2574,16 @@
                 }
                 logoutLink.style.display = 'none';
             }
-        } catch {
+        } catch (error) {
             currentSession = null;
             userLink.href = '/login';
-            userLink.title = 'Iniciar sesion';
+            userLink.title = error?.status >= 500
+                ? 'No se pudo verificar la sesión; intenta actualizar la página'
+                : 'Iniciar sesion';
             if (icon) {
-                icon.className = 'fas fa-user fa-2x';
+                icon.className = error?.status >= 500
+                    ? 'fas fa-user-clock fa-2x text-warning'
+                    : 'fas fa-user fa-2x';
             }
             logoutLink.style.display = 'none';
         }

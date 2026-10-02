@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,26 +28,8 @@ public class ReceiptDataService {
     private final ShipmentDao shipmentDao;
 
     public ReceiptEmailRequest buildFromOrderNumbers(List<String> orderNumbers, String customerSub) {
-        if (customerSub == null || customerSub.isBlank()
-                || orderNumbers == null || orderNumbers.isEmpty() || orderNumbers.size() > 20
-                || orderNumbers.stream().anyMatch(number -> number == null || number.isBlank())
-                || orderNumbers.stream().map(String::trim).distinct().count() != orderNumbers.size()) {
-            throw new IllegalArgumentException("Debes indicar al menos un numero de pedido para generar boleta.");
-        }
-
-        List<CustomerOrder> orders = new ArrayList<>();
-        for (String orderNumber : orderNumbers) {
-            if (orderNumber == null || orderNumber.isBlank()) {
-                continue;
-            }
-            CustomerOrder order = orderDao.findByOrderNumberAndCustomerSub(orderNumber.trim(), customerSub)
-                    .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
-            orders.add(order);
-        }
-
-        if (orders.isEmpty()) {
-            throw new IllegalArgumentException("No se encontraron pedidos para construir la boleta.");
-        }
+        validateOrderNumbers(orderNumbers, customerSub);
+        List<CustomerOrder> orders = loadOwnedOrders(orderNumbers, customerSub);
 
         CustomerOrder first = orders.get(0);
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -58,41 +41,19 @@ public class ReceiptDataService {
             if (order.getCreatedAt() != null && (latest == null || order.getCreatedAt().isAfter(latest))) {
                 latest = order.getCreatedAt();
             }
-
-            Inventory inventory = resolveInventory(order);
-            BigDecimal unitPrice = inventory != null && inventory.getUnitPrice() != null ? inventory.getUnitPrice() : BigDecimal.ZERO;
-            int qty = order.getQuantity() == null ? 0 : order.getQuantity();
-            BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
-            subtotal = subtotal.add(lineTotal);
-
-            ReceiptLineItem item = new ReceiptLineItem();
-            item.setInventoryId(order.getInventoryId());
-            item.setSku(order.getSku());
-            item.setProductName(inventory != null && inventory.getName() != null ? inventory.getName() : order.getSku());
-            item.setQuantity(qty);
-            item.setUnitPrice(unitPrice);
-            item.setLineTotal(lineTotal);
-            item.setOrderNumber(order.getOrderNumber());
+            ReceiptLineItem item = lineItem(order, resolveInventory(order));
+            subtotal = subtotal.add(item.getLineTotal());
             items.add(item);
-
-            Shipment shipment = shipmentDao.findByOrderNumber(order.getOrderNumber()).orElse(null);
-            ReceiptShipmentInfo shipmentInfo = new ReceiptShipmentInfo();
-            shipmentInfo.setOrderNumber(order.getOrderNumber());
-            shipmentInfo.setTrackingNumber(shipment != null ? shipment.getTrackingNumber() : "N/A");
-            shipmentInfo.setCarrier(shipment != null ? shipment.getCarrier() : "N/A");
-            shipmentInfo.setCourierName(shipment != null && shipment.getCourierName() != null ? shipment.getCourierName() : "Repartidor " + (shipment != null ? shipment.getCarrier() : "FlashStock"));
-            shipmentInfo.setStatus(shipment != null ? shipment.getStatus() : "pendiente");
-            shipmentInfo.setEta(shipment != null ? shipment.getEta() : "N/A");
-            shipments.add(shipmentInfo);
+            shipments.add(shipmentInfo(order));
         }
 
-        BigDecimal shipping = items.isEmpty() ? BigDecimal.ZERO : BigDecimal.valueOf(3);
+        BigDecimal shipping = BigDecimal.valueOf(3);
         BigDecimal discount = BigDecimal.ZERO;
         BigDecimal total = subtotal.add(shipping).subtract(discount);
 
         ReceiptEmailRequest receipt = new ReceiptEmailRequest();
         receipt.setReceiptNumber("BOL-" + first.getOrderNumber());
-        receipt.setCreatedAt((latest == null ? LocalDateTime.now() : latest).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        receipt.setCreatedAt((latest == null ? LocalDateTime.now(ZoneOffset.UTC) : latest).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         receipt.setCustomerFirstName(first.getCustomerFirstName());
         receipt.setCustomerLastName(first.getCustomerLastName());
         receipt.setCustomerEmail(first.getCustomerEmail());
@@ -104,6 +65,56 @@ public class ReceiptDataService {
         receipt.setItems(items);
         receipt.setShipments(shipments);
         return receipt;
+    }
+
+    private void validateOrderNumbers(List<String> orderNumbers, String customerSub) {
+        if (customerSub == null || customerSub.isBlank()
+                || orderNumbers == null || orderNumbers.isEmpty() || orderNumbers.size() > 20
+                || orderNumbers.stream().anyMatch(number -> number == null || number.isBlank())
+                || orderNumbers.stream().map(String::trim).distinct().count() != orderNumbers.size()) {
+            throw new IllegalArgumentException("Debes indicar al menos un numero de pedido para generar boleta.");
+        }
+    }
+
+    private List<CustomerOrder> loadOwnedOrders(List<String> orderNumbers, String customerSub) {
+        List<CustomerOrder> orders = new ArrayList<>();
+        for (String orderNumber : orderNumbers) {
+            CustomerOrder order = orderDao.findByOrderNumberAndCustomerSub(orderNumber.trim(), customerSub)
+                    .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
+            orders.add(order);
+        }
+        return orders;
+    }
+
+    private ReceiptLineItem lineItem(CustomerOrder order, Inventory inventory) {
+        BigDecimal unitPrice = inventory != null && inventory.getUnitPrice() != null ? inventory.getUnitPrice() : BigDecimal.ZERO;
+        int qty = order.getQuantity() == null ? 0 : order.getQuantity();
+        ReceiptLineItem item = new ReceiptLineItem();
+        item.setInventoryId(order.getInventoryId());
+        item.setSku(order.getSku());
+        item.setProductName(inventory != null && inventory.getName() != null ? inventory.getName() : order.getSku());
+        item.setQuantity(qty);
+        item.setUnitPrice(unitPrice);
+        item.setLineTotal(unitPrice.multiply(BigDecimal.valueOf(qty)));
+        item.setOrderNumber(order.getOrderNumber());
+        return item;
+    }
+
+    private ReceiptShipmentInfo shipmentInfo(CustomerOrder order) {
+        Shipment shipment = shipmentDao.findByOrderNumber(order.getOrderNumber()).orElse(null);
+        ReceiptShipmentInfo info = new ReceiptShipmentInfo();
+        info.setOrderNumber(order.getOrderNumber());
+        info.setTrackingNumber(shipment != null ? shipment.getTrackingNumber() : "N/A");
+        info.setCarrier(shipment != null ? shipment.getCarrier() : "N/A");
+        String courierName = "Repartidor FlashStock";
+        if (shipment != null) {
+            courierName = shipment.getCourierName() != null
+                    ? shipment.getCourierName() : "Repartidor " + shipment.getCarrier();
+        }
+        info.setCourierName(courierName);
+        info.setStatus(shipment != null ? shipment.getStatus() : "pendiente");
+        info.setEta(shipment != null ? shipment.getEta() : "N/A");
+        return info;
     }
 
     private Inventory resolveInventory(CustomerOrder order) {

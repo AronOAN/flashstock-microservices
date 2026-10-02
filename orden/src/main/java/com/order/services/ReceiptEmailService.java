@@ -24,6 +24,8 @@ import java.util.List;
 @ConditionalOnProperty(name = "flashstock.receipts.email-enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class ReceiptEmailService {
+    private static final String CLOSING_CELL = "</td>";
+
 
     private final JavaMailSender mailSender;
     private final ObjectMapper objectMapper;
@@ -209,11 +211,11 @@ public class ReceiptEmailService {
                 StringBuilder rows = new StringBuilder();
                 for (ReceiptLineItem item : items) {
                         rows.append("<tr>")
-                                        .append("<td>").append(escapeHtml(safe(item.getProductName()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(item.getSku()))).append("</td>")
-                                        .append("<td>").append(item.getQuantity() == null ? 0 : item.getQuantity()).append("</td>")
-                                        .append("<td>").append(currency(item.getUnitPrice())).append("</td>")
-                                        .append("<td>").append(currency(item.getLineTotal())).append("</td>")
+                                        .append("<td>").append(escapeHtml(safe(item.getProductName()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(item.getSku()))).append(CLOSING_CELL)
+                                        .append("<td>").append(item.getQuantity() == null ? 0 : item.getQuantity()).append(CLOSING_CELL)
+                                        .append("<td>").append(currency(item.getUnitPrice())).append(CLOSING_CELL)
+                                        .append("<td>").append(currency(item.getLineTotal())).append(CLOSING_CELL)
                                         .append("</tr>");
                 }
                 return rows.toString();
@@ -227,12 +229,12 @@ public class ReceiptEmailService {
                 StringBuilder rows = new StringBuilder();
                 for (ReceiptShipmentInfo shipment : shipments) {
                         rows.append("<tr>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getOrderNumber()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getTrackingNumber()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getCarrier()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getCourierName()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getStatus()))).append("</td>")
-                                        .append("<td>").append(escapeHtml(safe(shipment.getEta()))).append("</td>")
+                                        .append("<td>").append(escapeHtml(safe(shipment.getOrderNumber()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(shipment.getTrackingNumber()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(shipment.getCarrier()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(shipment.getCourierName()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(shipment.getStatus()))).append(CLOSING_CELL)
+                                        .append("<td>").append(escapeHtml(safe(shipment.getEta()))).append(CLOSING_CELL)
                                         .append("</tr>");
                 }
                 return rows.toString();

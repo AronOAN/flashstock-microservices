@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -26,6 +28,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +39,13 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ShippingService {
+    private static final Logger LOG = LoggerFactory.getLogger(ShippingService.class);
+    private static final String PROCESSING_STATUS = "proceso";
+    private static final String SHIPMENT_NOT_FOUND = "No existe envio: ";
+    private static final String CANCELLED_STATUS = "cancelado";
+    private static final String COMPLETED_STATUS = "completado";
+    private static final String SHIPPED_STATUS = "enviado";
+
     private static final double CHILE_MIN_LAT = -56.0;
     private static final double CHILE_MAX_LAT = -17.0;
     private static final double CHILE_MIN_LNG = -110.0;
@@ -80,7 +90,7 @@ public class ShippingService {
         CustomerOrder order = orderDao.findByOrderNumber(request.getOrderNumber())
                 .orElseThrow(() -> new IllegalArgumentException("No existe pedido para crear envio: " + request.getOrderNumber()));
 
-        order.setStatus("proceso");
+        order.setStatus(PROCESSING_STATUS);
         orderDao.save(order);
 
         double[] origin = resolveStoreOrigin();
@@ -92,7 +102,7 @@ public class ShippingService {
                     .trackingNumber(generateUniqueTrackingNumber())
                     .orderNumber(request.getOrderNumber())
                     .carrier(request.getCarrier())
-                    .status("proceso")
+                    .status(PROCESSING_STATUS)
                     .eta(eta)
                     .courierName("Repartidor " + request.getCarrier())
                     .originLat(origin[0])
@@ -104,7 +114,7 @@ public class ShippingService {
                     .routeGeoJson(buildLineGeoJson(routePlan.points()))
                     .routeStepsJson(writeStepsJson(routePlan.steps()))
                     .totalDurationSec(routePlan.totalDurationSec())
-                    .lastUpdate(LocalDateTime.now())
+                    .lastUpdate(LocalDateTime.now(ZoneOffset.UTC))
                     .build();
             try {
                 return toResponse(dao.save(shipment));
@@ -124,13 +134,13 @@ public class ShippingService {
 
     public ShipmentResponse findByTrackingNumber(String trackingNumber) {
         Shipment shipment = dao.findByTrackingNumber(trackingNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe envio: " + trackingNumber));
+                .orElseThrow(() -> new IllegalArgumentException(SHIPMENT_NOT_FOUND + trackingNumber));
         return toResponse(shipment);
     }
 
     public ShipmentResponse updateStatus(String trackingNumber, String status) {
         Shipment shipment = dao.findByTrackingNumber(trackingNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe envio: " + trackingNumber));
+                .orElseThrow(() -> new IllegalArgumentException(SHIPMENT_NOT_FOUND + trackingNumber));
         String normalized = normalizeShipmentStatus(status);
         shipment.setStatus(normalized);
         moveCourierByStatus(shipment, normalized);
@@ -140,7 +150,7 @@ public class ShippingService {
 
     public ShipmentTrackingResponse updateTrackingLive(String trackingNumber, ShipmentLiveUpdateRequest request) {
         Shipment shipment = dao.findByTrackingNumber(trackingNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe envio: " + trackingNumber));
+                .orElseThrow(() -> new IllegalArgumentException(SHIPMENT_NOT_FOUND + trackingNumber));
 
         if (request != null) {
             if (request.getCourierName() != null && !request.getCourierName().isBlank()) {
@@ -159,14 +169,14 @@ public class ShippingService {
             }
         }
 
-        shipment.setLastUpdate(LocalDateTime.now());
+        shipment.setLastUpdate(LocalDateTime.now(ZoneOffset.UTC));
         dao.save(shipment);
         return getTrackingSnapshot(trackingNumber);
     }
 
     public ShipmentTrackingResponse getTrackingSnapshot(String trackingNumber) {
         Shipment shipment = dao.findByTrackingNumber(trackingNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No existe envio: " + trackingNumber));
+                .orElseThrow(() -> new IllegalArgumentException(SHIPMENT_NOT_FOUND + trackingNumber));
 
         CustomerOrder order = orderDao.findByOrderNumber(shipment.getOrderNumber())
                 .orElseThrow(() -> new IllegalArgumentException("No existe pedido para tracking: " + shipment.getOrderNumber()));
@@ -204,7 +214,7 @@ public class ShippingService {
 
         shipment.setCourierLat(courierLat);
         shipment.setCourierLng(courierLng);
-        shipment.setLastUpdate(LocalDateTime.now());
+        shipment.setLastUpdate(LocalDateTime.now(ZoneOffset.UTC));
         dao.save(shipment);
 
         List<ShipmentRouteStepEtaResponse> steps = readStepsJson(shipment.getRouteStepsJson());
@@ -233,16 +243,18 @@ public class ShippingService {
                 .totalDurationText(formatDuration(totalDurationSec))
                 .remainingDurationText(formatDuration(remainingDurationSec))
                 .startedAt(shipment.getCreatedAt() == null
-                    ? LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    ? LocalDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                     : shipment.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .routeSteps(steps)
                 .lastUpdate(shipment.getLastUpdate() == null
-                        ? LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                        ? LocalDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         : shipment.getLastUpdate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
     }
 
     public ShipmentResponse shippingFallback(ShipmentRequest request, Throwable throwable) {
+        // Resilience4j requires the last Throwable parameter for fallback matching.
+        LOG.warn("Shipping fallback triggered by {}", throwable.getClass().getSimpleName());
         return ShipmentResponse.builder()
                 .trackingNumber("N/A")
                 .orderNumber(request.getOrderNumber())
@@ -284,45 +296,45 @@ public class ShippingService {
 
     private String toOrderStatus(String shipmentStatus) {
         if (shipmentStatus.contains("cancel")) {
-            return "cancelado";
+            return CANCELLED_STATUS;
         }
         if (shipmentStatus.contains("complet") || shipmentStatus.contains("deliver")) {
-            return "completado";
+            return COMPLETED_STATUS;
         }
-        if (shipmentStatus.contains("enviado") || shipmentStatus.contains("transit") || shipmentStatus.contains("shipped")) {
-            return "enviado";
+        if (shipmentStatus.contains(SHIPPED_STATUS) || shipmentStatus.contains("transit") || shipmentStatus.contains("shipped")) {
+            return SHIPPED_STATUS;
         }
-        return "proceso";
+        return PROCESSING_STATUS;
     }
 
     private String normalizeShipmentStatus(String status) {
         if (status == null) {
-            return "proceso";
+            return PROCESSING_STATUS;
         }
         String normalized = status.trim().toLowerCase(Locale.ROOT);
         if (normalized.isBlank()) {
-            return "proceso";
+            return PROCESSING_STATUS;
         }
         return normalized;
     }
 
     private String normalizeOrderStatus(String status) {
         if (status == null) {
-            return "proceso";
+            return PROCESSING_STATUS;
         }
         String normalized = status.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
-            case "enviado", "cancelado", "completado", "proceso" -> normalized;
-            default -> "proceso";
+            case SHIPPED_STATUS, CANCELLED_STATUS, COMPLETED_STATUS, PROCESSING_STATUS -> normalized;
+            default -> PROCESSING_STATUS;
         };
     }
 
     private int progressByStatus(String orderStatus) {
         return switch (orderStatus) {
-            case "proceso" -> 15;
-            case "enviado" -> 65;
-            case "cancelado" -> 35;
-            case "completado" -> 100;
+            case PROCESSING_STATUS -> 15;
+            case SHIPPED_STATUS -> 65;
+            case CANCELLED_STATUS -> 35;
+            case COMPLETED_STATUS -> 100;
             default -> 15;
         };
     }
@@ -376,7 +388,10 @@ public class ShippingService {
                     return new double[] {location.path("lat").asDouble(), location.path("lng").asDouble()};
                 }
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         } catch (Exception ignored) {
+            // The deterministic fallback is used when geocoding is unavailable.
         }
 
         return fallbackCoordinate(address);
@@ -417,7 +432,10 @@ public class ShippingService {
                 }
                 return new RoutePlan(points, steps, totalDuration);
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         } catch (Exception ignored) {
+            // The local route is used when Directions is unavailable.
         }
 
         return fallbackRoute(originLat, originLng, destinationLat, destinationLng);
@@ -571,29 +589,25 @@ public class ShippingService {
         }
 
         JsonNode components = resultNode.path("address_components");
-        if (components == null || !components.isArray()) {
+        if (!components.isArray()) {
             return false;
         }
 
         for (JsonNode component : components) {
-            JsonNode types = component.path("types");
-            if (types != null && types.isArray()) {
-                boolean isCountry = false;
-                for (JsonNode t : types) {
-                    if ("country".equalsIgnoreCase(t.asText(""))) {
-                        isCountry = true;
-                        break;
-                    }
-                }
-
-                if (isCountry) {
-                    String shortName = component.path("short_name").asText("");
-                    String longName = component.path("long_name").asText("");
-                    return "CL".equalsIgnoreCase(shortName) || "CHILE".equalsIgnoreCase(longName);
-                }
+            if (component.path("types").isArray() && isCountryComponent(component.path("types"))) {
+                String shortName = component.path("short_name").asText("");
+                String longName = component.path("long_name").asText("");
+                return "CL".equalsIgnoreCase(shortName) || "CHILE".equalsIgnoreCase(longName);
             }
         }
 
+        return false;
+    }
+
+    private boolean isCountryComponent(JsonNode types) {
+        for (JsonNode type : types) {
+            if ("country".equalsIgnoreCase(type.asText(""))) return true;
+        }
         return false;
     }
 
@@ -611,9 +625,9 @@ public class ShippingService {
 
     private double[] fallbackCoordinate(String seed) {
         String base = seed == null ? "" : seed;
-        int hash = Math.abs(base.hashCode());
+        long hash = Math.abs((long) base.hashCode());
         double lat = -33.35 - ((hash % 7000) / 100000.0);
-        double lng = -70.58 - (((hash / 10) % 7000) / 100000.0);
+        double lng = -70.58 - (((hash / 10.0) % 7000) / 100000.0);
         return new double[] {lat, lng};
     }
 
@@ -646,7 +660,7 @@ public class ShippingService {
     }
 
     private boolean isDuplicateKey(DataIntegrityViolationException ex) {
-        String msg = ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage();
+        String msg = ex.getMostSpecificCause().getMessage();
         if (msg == null) {
             return false;
         }

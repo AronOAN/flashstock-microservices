@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -16,6 +17,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.NullSecurityContextRepository;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 
 @Configuration
 @Profile("aws")
@@ -47,8 +50,15 @@ public class AwsCognitoSecurityConfig {
     @Bean
     SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
-            .csrf(csrf -> csrf.disable())  // Stateless Bearer API; tokens stay on the trusted Next.js BFF.
+            // /api/** accepts only explicit Bearer tokens, never browser session cookies.
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
+            .requestCache(cache -> cache.requestCache(new NullRequestCache()))
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .oauth2Login(AbstractHttpConfigurer::disable)
+            .logout(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()

@@ -1,6 +1,6 @@
 # Frontend FlashStock
 
-El acceso está en `/login`: el navegador envía correo y contraseña por HTTPS a `POST /auth/password` del propio Next.js. Ese servidor llama a Cognito User Pools `InitiateAuth` y, si corresponde, `RespondToAuthChallenge` (contraseña temporal o MFA). Cognito valida la identidad y emite el Access Token; Next.js consulta `GetUser` y guarda el token únicamente en una cookie cifrada HttpOnly, Secure en producción y SameSite=Lax. El navegador nunca recibe el JWT en la respuesta JSON.
+El acceso está en `/login`: el navegador envía correo y contraseña por HTTPS a `POST /auth/password` del propio Next.js. Ese servidor llama a Cognito User Pools `InitiateAuth` y, si corresponde, `RespondToAuthChallenge` (contraseña temporal o MFA). Cognito valida la identidad y emite los tokens; Next.js consulta `GetUser` y guarda Access Token y Refresh Token en cookies cifradas **separadas**, HttpOnly, Secure en producción y SameSite=Lax. El navegador nunca recibe los tokens en una respuesta JSON ni los lee con JavaScript. La contraseña o su hash nunca se incluyen en los JWT.
 
 ## Configuración
 
@@ -8,6 +8,8 @@ En Vercel, define como variables de servidor: `FLASHSTOCK_SITE_URL=https://flash
 
 Aplica antes el plan Terraform que añade `ALLOW_USER_PASSWORD_AUTH` al cliente y cambia a `aws.cognito.signin.user.admin` el scope de las rutas JWT de Auth e Inventory. Debe existir una ruta AWS para `GET /api/auth/me`; el backend comprueba firma, emisor, `client_id`, `token_use=access` y grupos de Cognito. Una cuenta debe ser creada en el User Pool por el administrador; el pool no admite autorregistro.
 
-La sesión caduca con el Access Token (configurado a 15 minutos en `cognito.tf`); hay que iniciar sesión de nuevo. Para salir, `/auth/logout` elimina cookies de sesión y desafío. `GET /auth/login` redirige al formulario propio; `GET /auth/callback` ya no intercambia códigos.
+El Access Token dura 15 minutos. Cuando se acerca a su vencimiento, el BFF solicita tokens nuevos mediante `GetTokensFromRefreshToken`, comprueba con `GetUser` que el `sub` coincide con el de la sesión y reemplaza la cookie de acceso. El Refresh Token dura **un día**, conforme a `refresh_token_validity = 1` de `cognito.tf`; su renovación no extiende ese límite. Si caduca o es revocado hay que iniciar sesión otra vez. `GET /auth/logout` revoca el Refresh Token en Cognito y elimina las cookies locales. `GET /auth/login` redirige al formulario propio; `GET /auth/callback` ya no intercambia códigos. El formulario propio no usa PKCE: PKCE sólo aplica al flujo OAuth Authorization Code con redirección a Cognito.
+
+Si la interfaz indica que no puede verificar la sesión justo después de iniciar sesión, comprueba `GET /api/auth/me` en Network: la ruta de AWS debe aceptar el Access Token y el servicio Auth debe responder `data.authenticated=true`. Un `401/403` de Auth ya no se presenta como sesión anónima. Comprueba también la existencia de `__Host-flashstock-session` y `__Host-flashstock-refresh` en las cookies del navegador **sin copiar sus valores**.
 
 Orden, Boletas y Shipping siguen cerrados en el proxy mediante `FLASHSTOCK_ORDER_ROUTES_ENABLED=false`, y Terraform no publica sus rutas en API Gateway. Consulta `CAMBIOS-SEGURIDAD-LOGIN.md` en la raíz antes de habilitar cualquiera de ellas.

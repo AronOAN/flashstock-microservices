@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { cookieOptions, seal, sessionCookieName, siteOrigin, type FlashStockSession } from '@/lib/flashstock-session';
+import { clearSessionCookies, cookieOptions, getRefreshState, getSession, refreshCookieName,
+  REFRESH_TTL_SECONDS, seal, sealRefresh, sessionCookieName, siteOrigin,
+  type FlashStockRefresh, type FlashStockSession } from '@/lib/flashstock-session';
 import { NextRequest, NextResponse } from 'next/server';
 
 const challenges = ['NEW_PASSWORD_REQUIRED', 'SMS_MFA', 'SOFTWARE_TOKEN_MFA', 'EMAIL_MFA', 'EMAIL_OTP', 'SMS_OTP'] as const;
@@ -39,13 +41,13 @@ export function cognitoConfig(): { endpoint: string; clientId: string } {
 }
 
 export type CognitoResult = {
-  AuthenticationResult?: { AccessToken?: string; ExpiresIn?: number; TokenType?: string };
+  AuthenticationResult?: { AccessToken?: string; RefreshToken?: string; ExpiresIn?: number; TokenType?: string };
   ChallengeName?: string;
   ChallengeParameters?: { USER_ID_FOR_SRP?: string; requiredAttributes?: string };
   Session?: string;
 };
 
-export async function cognitoCall(action: 'InitiateAuth' | 'RespondToAuthChallenge' | 'GetUser', body: object): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
+export async function cognitoCall(action: 'InitiateAuth' | 'RespondToAuthChallenge' | 'GetUser' | 'GetTokensFromRefreshToken', body: object): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
   const { endpoint } = cognitoConfig();
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -63,13 +65,19 @@ export function isChallenge(name: string): name is ChallengeName {
   return (challenges as readonly string[]).includes(name);
 }
 
-export async function completeSignIn(result: CognitoResult): Promise<NextResponse | null> {
-  const token = result.AuthenticationResult;
-  if (typeof token?.AccessToken !== 'string' || token.AccessToken.length < 20 || token.AccessToken.length > 12000 ||
-      token.TokenType?.toLowerCase() !== 'bearer' || !Number.isInteger(token.ExpiresIn) ||
-      !token.ExpiresIn || token.ExpiresIn < 1 || token.ExpiresIn > 86400) return null;
-  const user = await cognitoCall('GetUser', { AccessToken: token.AccessToken });
-  if (!user.ok || !Array.isArray(user.data.UserAttributes)) return null;
+function validAccessToken(token: CognitoResult['AuthenticationResult']): token is NonNullable<CognitoResult['AuthenticationResult']> & { AccessToken: string; ExpiresIn: number } {
+  return typeof token?.AccessToken === 'string' && token.AccessToken.length >= 20 && token.AccessToken.length <= 12000 &&
+    token.TokenType?.toLowerCase() === 'bearer' && Number.isInteger(token.ExpiresIn) &&
+    !!token.ExpiresIn && token.ExpiresIn >= 1 && token.ExpiresIn <= 86400;
+}
+
+async function cognitoUser(accessToken: string): Promise<{ sub: string; email: string | null; name: string | null } | null> {
+  const user = await cognitoCall('GetUser', { AccessToken: accessToken });
+  if (!user.ok) {
+    if (user.status >= 500 || user.status === 429) throw new Error('Cognito GetUser unavailable');
+    return null;
+  }
+  if (!Array.isArray(user.data.UserAttributes)) return null;
   const attributes = new Map<string, string>();
   for (const entry of user.data.UserAttributes) {
     if (entry && typeof entry === 'object' && 'Name' in entry && 'Value' in entry &&
@@ -77,16 +85,99 @@ export async function completeSignIn(result: CognitoResult): Promise<NextRespons
   }
   const sub = attributes.get('sub');
   if (!sub || !/^[a-zA-Z0-9-]{20,80}$/.test(sub)) return null;
-  const session: FlashStockSession = { accessToken: token.AccessToken,
-    expiresAt: Date.now() + Math.max(1, token.ExpiresIn - 30) * 1000,
-    sub, email: attributes.get('email_verified') === 'true' ? attributes.get('email') || null : null,
+  return { sub, email: attributes.get('email_verified') === 'true' ? attributes.get('email') || null : null,
     name: attributes.get('name') || null };
+}
+
+export async function completeSignIn(result: CognitoResult): Promise<NextResponse | null> {
+  const token = result.AuthenticationResult;
+  // Without a refresh token the browser would lose its session after 15 minutes.
+  if (!validAccessToken(token) || typeof token.RefreshToken !== 'string' ||
+      token.RefreshToken.length < 20 || token.RefreshToken.length > 4096) return null;
+  const user = await cognitoUser(token.AccessToken);
+  if (!user) return null;
+  const now = Date.now();
+  const session: FlashStockSession = { accessToken: token.AccessToken,
+    expiresAt: now + Math.max(1, token.ExpiresIn - 30) * 1000,
+    sub: user.sub, email: user.email, name: user.name };
+  const refresh: FlashStockRefresh = { refreshToken: token.RefreshToken, sub: user.sub,
+    expiresAt: now + REFRESH_TTL_SECONDS * 1000 };
   const encryptedSession = seal(session);
-  if (encryptedSession.length > 3800) return null;
+  const encryptedRefresh = sealRefresh(refresh);
+  if (encryptedSession.length > 3800 || encryptedRefresh.length > 3800) return null;
   const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
   response.cookies.set(sessionCookieName(), encryptedSession, { ...cookieOptions(), maxAge: token.ExpiresIn });
-  response.cookies.delete(challengeCookieName());
+  response.cookies.set(refreshCookieName(), encryptedRefresh, { ...cookieOptions(), maxAge: REFRESH_TTL_SECONDS });
+  response.cookies.set(challengeCookieName(), '', { ...cookieOptions(), maxAge: 0 });
   return response;
+}
+
+export type SessionResolution = {
+  session: FlashStockSession | null;
+  refreshed?: { session: FlashStockSession; accessMaxAge: number; refresh?: FlashStockRefresh };
+  clear?: boolean;
+  unavailable?: boolean;
+};
+
+export async function resolveSession(): Promise<SessionResolution> {
+  const existing = await getSession();
+  if (existing && existing.expiresAt > Date.now() + 30000) return { session: existing };
+  const refresh = await getRefreshState();
+  if (!refresh) return { session: existing };
+  try {
+    const { clientId } = cognitoConfig();
+    const response = await cognitoCall('GetTokensFromRefreshToken', {
+      ClientId: clientId, RefreshToken: refresh.refreshToken,
+    });
+    if (!response.ok) {
+      // Cognito rejects expired/revoked tokens with a 4xx; network/5xx errors are retriable.
+      if (response.status >= 500 || response.status === 429) return { session: existing, unavailable: !existing };
+      return { session: null, clear: true };
+    }
+    const token = (response.data as CognitoResult).AuthenticationResult;
+    if (!validAccessToken(token)) return { session: existing, unavailable: !existing };
+    const user = await cognitoUser(token.AccessToken);
+    // Tie every refreshed access token to the original subject. Never swap identities.
+    if (!user || user.sub !== refresh.sub) return { session: null, clear: true };
+    const session: FlashStockSession = { accessToken: token.AccessToken,
+      expiresAt: Date.now() + Math.max(1, token.ExpiresIn - 30) * 1000,
+      sub: refresh.sub, email: user.email, name: user.name };
+    const rotated = typeof token.RefreshToken === 'string' && token.RefreshToken.length >= 20 &&
+      token.RefreshToken.length <= 4096 ? { ...refresh, refreshToken: token.RefreshToken } : undefined;
+    if (seal(session).length > 3800 || (rotated && sealRefresh(rotated).length > 3800)) {
+      return { session: existing, unavailable: !existing };
+    }
+    return { session, refreshed: { session, accessMaxAge: token.ExpiresIn, refresh: rotated } };
+  } catch {
+    return { session: existing, unavailable: !existing };
+  }
+}
+
+export function attachSessionCookies(response: NextResponse, state: SessionResolution): NextResponse {
+  if (state.clear) clearSessionCookies(response);
+  if (state.refreshed) {
+    response.cookies.set(sessionCookieName(), seal(state.refreshed.session),
+      { ...cookieOptions(), maxAge: state.refreshed.accessMaxAge });
+    if (state.refreshed.refresh) {
+      response.cookies.set(refreshCookieName(), sealRefresh(state.refreshed.refresh),
+        { ...cookieOptions(), maxAge: Math.max(0, Math.floor((state.refreshed.refresh.expiresAt - Date.now()) / 1000)) });
+    }
+  }
+  return response;
+}
+
+export async function revokeRefreshToken(): Promise<void> {
+  const refresh = await getRefreshState();
+  if (!refresh) return;
+  try {
+    const { endpoint, clientId } = cognitoConfig();
+    await fetch(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityProviderService.RevokeToken' },
+      body: JSON.stringify({ ClientId: clientId, Token: refresh.refreshToken }),
+      cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000),
+    });
+  } catch { /* Always clear the local session, even when Cognito is unavailable. */ }
 }
 
 // A separate authenticated envelope prevents a session cookie from being substituted for challenge state.

@@ -364,7 +364,7 @@ jobs:
               echo "sonar.junit.reportPaths=$(join_csv "${junit_reports[@]}")"
             fi
 
-            echo "sonar.qualitygate.wait=false"
+            echo "sonar.qualitygate.wait=true"
 
           } > sonar-project.properties
 

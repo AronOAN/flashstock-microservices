@@ -63,8 +63,8 @@ public class SecurityConfig {
 
         return http
 
-            // API Bearer, sin autenticación mediante cookies.
-            .csrf(AbstractHttpConfigurer::disable)
+            // Only explicit Bearer credentials authenticate this stateless API.
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
 
             // Nunca utilizar HttpSession para persistir
             // el SecurityContext.

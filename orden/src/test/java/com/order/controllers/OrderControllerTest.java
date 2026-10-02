@@ -70,8 +70,10 @@ class OrderControllerTest {
 
     @Test
     void idTokenAndMissingIdentityCannotClaimOrders() {
+        Authentication idToken = token("owner-1", "id", "ROLE_USER");
+        OrderRequest request = new OrderRequest();
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ResponseStatusException.class,
-                () -> controller.create(new OrderRequest(), token("owner-1", "id", "ROLE_USER"))).getStatusCode());
+                () -> controller.create(request, idToken)).getStatusCode());
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ResponseStatusException.class,
                 () -> controller.confirmReceived(null, "ORD-1")).getStatusCode());
         verifyNoInteractions(service);

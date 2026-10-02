@@ -59,36 +59,9 @@ public class AuthController {
                 .toList();
 
         boolean isAdminByRole = authorities.contains("ROLE_ADMIN");
-        String email = authentication.getName();
-        String displayName = authentication.getName();
-
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof OAuth2User oauth2User) {
-            Object attrEmail = oauth2User.getAttributes().get("email");
-            Object attrMail = oauth2User.getAttributes().get("mail");
-            Object attrUserPrincipalName = oauth2User.getAttributes().get("userPrincipalName");
-            Object attrPreferredUsername = oauth2User.getAttributes().get("preferred_username");
-            Object attrName = oauth2User.getAttributes().get("name");
-            if (attrEmail instanceof String attrEmailStr && !attrEmailStr.isBlank()) {
-                email = attrEmailStr;
-            } else if (attrMail instanceof String attrMailStr && !attrMailStr.isBlank()) {
-                email = attrMailStr;
-            } else if (attrUserPrincipalName instanceof String attrUpnStr && !attrUpnStr.isBlank()) {
-                email = attrUpnStr;
-            } else if (attrPreferredUsername instanceof String attrPreferredUsernameStr && !attrPreferredUsernameStr.isBlank()) {
-                email = attrPreferredUsernameStr;
-            }
-            if (attrName instanceof String attrNameStr && !attrNameStr.isBlank()) {
-                displayName = attrNameStr;
-            }
-        }
-
-        if (principal instanceof Jwt jwt) {
-            String jwtEmail = jwt.getClaimAsString("email");
-            email = jwtEmail != null && !jwtEmail.isBlank() ? jwtEmail : null;
-            String name = jwt.getClaimAsString("username");
-            displayName = name == null || name.isBlank() ? "Usuario" : name;
-        }
+        Identity identity = resolveIdentity(authentication);
+        String email = identity.email();
+        String displayName = identity.displayName();
 
         boolean isAdminByEmail = legacyAdminEmailEnabled && adminEmail != null
             && !adminEmail.isBlank()
@@ -108,6 +81,33 @@ public class AuthController {
                         .build())
                 .build();
     }
+
+    private Identity resolveIdentity(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt jwt) {
+            String name = jwt.getClaimAsString("username");
+            return new Identity(jwt.getClaimAsString("email"),
+                    name == null || name.isBlank() ? "Usuario" : name);
+        }
+        if (principal instanceof OAuth2User oauth2User) {
+            Map<String, Object> attributes = oauth2User.getAttributes();
+            String email = firstString(attributes, "email", "mail", "userPrincipalName", "preferred_username");
+            String name = firstString(attributes, "name");
+            return new Identity(email == null ? authentication.getName() : email,
+                    name == null ? authentication.getName() : name);
+        }
+        return new Identity(authentication.getName(), authentication.getName());
+    }
+
+    private String firstString(Map<String, Object> attributes, String... keys) {
+        for (String key : keys) {
+            Object value = attributes.get(key);
+            if (value instanceof String text && !text.isBlank()) return text;
+        }
+        return null;
+    }
+
+    private record Identity(String email, String displayName) { }
 
     @GetMapping("/providers")
     public ApiResponse<Map<String, Boolean>> providers() {

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { challengeCookieName } from '@/lib/cognito-password';
-import { oauthCookieName, sessionCookieName, siteOrigin } from '@/lib/flashstock-session';
+import { challengeCookieName, revokeRefreshToken } from '@/lib/cognito-password';
+import { clearSessionCookies, cookieOptions, oauthCookieName, siteOrigin } from '@/lib/flashstock-session';
 export const runtime='nodejs';
-// End of local BFF session; revoke OAuth refresh tokens if they are added in a later phase.
 export async function GET() {
+  await revokeRefreshToken();
   const res=NextResponse.redirect(new URL('/',siteOrigin()));
-  res.cookies.delete(sessionCookieName());
-  res.cookies.delete(oauthCookieName());
-  res.cookies.delete(challengeCookieName());
+  clearSessionCookies(res);
+  res.cookies.set(oauthCookieName(), '', { ...cookieOptions(), maxAge: 0 });
+  res.cookies.set(challengeCookieName(), '', { ...cookieOptions(), maxAge: 0 });
   res.headers.set('Cache-Control','no-store');
   return res;
 }

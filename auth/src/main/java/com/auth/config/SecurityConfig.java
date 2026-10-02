@@ -17,6 +17,12 @@ import java.nio.charset.StandardCharsets;
 @Profile("!aws")
 @RequiredArgsConstructor
 public class SecurityConfig {
+    private static final String ADMIN_ROLE = "ADMIN";
+    private static final String SHIPPING_PATH = "/api/shipping/**";
+    private static final String ORDERS_PATH = "/api/orders/**";
+    private static final String INVENTORY_PATH = "/api/inventory/**";
+    private static final String INDEX_PATH = "/index.html";
+
 
     private final CustomOAuth2UserService customOAuth2UserService;
     private final CustomOidcUserService customOidcUserService;
@@ -25,31 +31,30 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Existing frontend flow posts to public APIs without CSRF token.
-            .csrf(csrf -> csrf.disable())
+            // Local OAuth2 login uses a browser session: keep Spring's default CSRF protection.
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/**").permitAll()
                 .requestMatchers("/api/admin/**").authenticated()
                 .requestMatchers("/api/cart/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/orders/my-history").authenticated()
-                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/shipping").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/orders/customer-shipping", "/api/orders").hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.GET, "/api/shipping").hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.GET, "/api/shipping/tracking/**", "/api/shipping/*").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/shipping/**").permitAll()
+                .requestMatchers(HttpMethod.POST, ORDERS_PATH, SHIPPING_PATH).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/payments/google-pay/config", "/api/payments/deuna/config").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/payments/google-pay/authorize", "/api/payments/deuna/attempts", "/api/payments/deuna/webhook").permitAll()
-                .requestMatchers("/api/payments/**").hasRole("ADMIN")
+                .requestMatchers("/api/payments/**").hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.POST, "/api/receipts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/receipts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/coupons/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/inventory/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/inventory/**", "/api/orders/**", "/api/shipping/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.POST, INVENTORY_PATH).hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.PATCH, INVENTORY_PATH, ORDERS_PATH, SHIPPING_PATH).hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.PUT, INVENTORY_PATH, ORDERS_PATH, SHIPPING_PATH).hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.DELETE, INVENTORY_PATH, ORDERS_PATH, SHIPPING_PATH).hasRole(ADMIN_ROLE)
                 .requestMatchers(
                     "/",
-                    "/index.html",
+                    INDEX_PATH,
                     "/shop.html",
                     "/cart.html",
                     "/chackout.html",
@@ -70,7 +75,7 @@ public class SecurityConfig {
                     "/api-docs/**",
                     "/v3/api-docs/**"
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/inventory/**").permitAll()
+                .requestMatchers(HttpMethod.GET, INVENTORY_PATH).permitAll()
                 .anyRequest().authenticated())
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/login")
@@ -86,13 +91,13 @@ public class SecurityConfig {
                     String encodedMessage = URLEncoder.encode(safeMessage, StandardCharsets.UTF_8);
                     response.sendRedirect("/login?error=oauth2&message=" + encodedMessage);
                 })
-                .defaultSuccessUrl("/index.html", true))
+                .defaultSuccessUrl(INDEX_PATH, true))
             .logout(logout -> logout
                 .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
                 .clearAuthentication(true)
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
-                .logoutSuccessUrl("/index.html"));
+                .logoutSuccessUrl(INDEX_PATH));
 
         return http.build();
     }

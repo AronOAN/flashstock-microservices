@@ -20,6 +20,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
+    private static final String SKU_NOT_FOUND = "No existe inventario para SKU: ";
+
     private final CartDao cartDao;
     private final InventoryDao dao;
     private final OrderDao orderDao;
@@ -72,21 +74,21 @@ public class InventoryService {
 
     public InventoryResponse findBySku(String sku) {
         Inventory entity = dao.findBySku(sku)
-                .orElseThrow(() -> new IllegalArgumentException("No existe inventario para SKU: " + sku));
+                .orElseThrow(() -> new IllegalArgumentException(SKU_NOT_FOUND + sku));
         Map<String, Integer> reservedBySku = cartDao.reservedUnitsBySku();
         return toResponseWithAvailability(entity, reservedBySku);
     }
 
     public InventoryResponse updateQuantity(String sku, Integer quantity) {
         Inventory entity = dao.findBySku(sku)
-                .orElseThrow(() -> new IllegalArgumentException("No existe inventario para SKU: " + sku));
+                .orElseThrow(() -> new IllegalArgumentException(SKU_NOT_FOUND + sku));
         entity.setQuantity(quantity);
         return toResponse(dao.save(entity));
     }
 
     public InventoryResponse updateProduct(String sku, InventoryRequest request) {
         Inventory entity = dao.findBySku(sku)
-                .orElseThrow(() -> new IllegalArgumentException("No existe inventario para SKU: " + sku));
+                .orElseThrow(() -> new IllegalArgumentException(SKU_NOT_FOUND + sku));
 
         if (request.getUnitPrice() == null && request.getPrice() == null) {
             throw new IllegalArgumentException("Debes informar unitPrice o price para el producto");
@@ -113,7 +115,7 @@ public class InventoryService {
     public void deleteBySku(String sku) {
         Inventory entity = dao.findBySku(sku).orElse(null);
         if (entity == null) {
-            throw new IllegalArgumentException("No existe inventario para SKU: " + sku);
+            throw new IllegalArgumentException(SKU_NOT_FOUND + sku);
         }
 
         try {
@@ -226,7 +228,7 @@ public class InventoryService {
     }
 
     private boolean isDuplicateKey(DataIntegrityViolationException ex) {
-        String msg = ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage();
+        String msg = ex.getMostSpecificCause().getMessage();
         if (msg == null) {
             return false;
         }

@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "delivery_drivers")
@@ -51,6 +52,6 @@ public class DeliveryDriver {
     @PrePersist
     @PreUpdate
     private void touchUpdatedAt() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 }

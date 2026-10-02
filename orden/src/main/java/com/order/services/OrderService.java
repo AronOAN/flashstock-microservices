@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Set;
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +27,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-    private static final Set<String> ALLOWED_ORDER_STATUS = Set.of("proceso", "enviado", "cancelado", "completado");
+    private static final String COMPLETED_STATUS = "completado";
+
+    private static final Set<String> ALLOWED_ORDER_STATUS = Set.of("proceso", "enviado", "cancelado", COMPLETED_STATUS);
 
     private final OrderDao dao;
     private final InventoryDao inventoryDao;
@@ -79,7 +82,7 @@ public class OrderService {
                 .customerEmail(verifiedEmail)
                 .shippingAddress(request.getShippingAddress())
                 .status("proceso")
-                .createdAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(ZoneOffset.UTC))
                 .build();
 
         for (int attempt = 0; attempt < 5; attempt++) {
@@ -146,13 +149,13 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El pedido aun no puede confirmarse");
         }
 
-        order.setStatus("completado");
+        order.setStatus(COMPLETED_STATUS);
         dao.save(order);
 
         Shipment shipment = shipmentDao.findByOrderNumber(order.getOrderNumber()).orElse(null);
         if (shipment != null) {
-            shipment.setStatus("completado");
-            shipment.setLastUpdate(LocalDateTime.now());
+            shipment.setStatus(COMPLETED_STATUS);
+            shipment.setLastUpdate(LocalDateTime.now(ZoneOffset.UTC));
             shipmentDao.save(shipment);
         }
 
@@ -219,7 +222,7 @@ public class OrderService {
     }
 
     private boolean isDuplicateKey(DataIntegrityViolationException ex) {
-        String msg = ex.getMostSpecificCause() == null ? ex.getMessage() : ex.getMostSpecificCause().getMessage();
+        String msg = ex.getMostSpecificCause().getMessage();
         if (msg == null) {
             return false;
         }

@@ -5,8 +5,8 @@ import com.shipping.services.ShippingService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -31,8 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(AwsCognitoSecurityConfig.class)
 class ShippingAwsSecurityWebTest {
     @Autowired private MockMvc mvc;
-    @MockBean private ShippingService service;
-    @MockBean private JwtDecoder decoder;
+    @MockitoBean private ShippingService service;
+    @MockitoBean private JwtDecoder decoder;
 
     @Test
     void cookiesDoNotAuthorizeAndUserCannotModifyDelivery() throws Exception {

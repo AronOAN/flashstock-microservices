@@ -4,8 +4,8 @@ import com.shipping.controllers.ShippingController;
 import com.shipping.services.ShippingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -34,10 +34,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 class ShippingLocalSecurityWebTest {
     @Autowired private MockMvc mvc;
-    @MockBean private ShippingService service;
-    @MockBean private CustomOAuth2UserService oauthUserService;
-    @MockBean private CustomOidcUserService oidcUserService;
-    @MockBean private OAuth2AuthorizationRequestResolver oauthRequestResolver;
+    @MockitoBean private ShippingService service;
+    @MockitoBean private CustomOAuth2UserService oauthUserService;
+    @MockitoBean private CustomOidcUserService oidcUserService;
+    @MockitoBean private OAuth2AuthorizationRequestResolver oauthRequestResolver;
 
     @Test
     void browserSessionRequiresLoginAndPostWithoutCsrfIsForbidden() throws Exception {

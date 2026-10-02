@@ -4,13 +4,13 @@ import com.inventory.controllers.InventoryController;
 import com.inventory.services.InventoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,8 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(AwsCognitoSecurityConfig.class)
 class InventoryAwsSecurityWebTest {
     @Autowired private MockMvc mvc;
-    @MockBean private InventoryService service;
-    @MockBean private JwtDecoder decoder;
+    @MockitoBean private InventoryService service;
+    @MockitoBean private JwtDecoder decoder;
 
     @Test
     void rejectsCookiesAndUnsignedOrUnprivilegedRequests() throws Exception {

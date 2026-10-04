@@ -30,6 +30,12 @@ public class BackendOwnedTokenController {
     private final byte[] bffSecret;
     private final boolean secure;
 
+    private static final String r = "ADMIN";
+
+
+
+    private static final String cg = "cognito:groups";
+
     public BackendOwnedTokenController(TokenSessionService sessions, FlashstockJwtService jwt,
             @Value("${flashstock.browser.site-origin}") String siteOrigin,
             @Value("${flashstock.browser.bff-secret-base64}") String bffSecretBase64) {
@@ -83,8 +89,8 @@ public class BackendOwnedTokenController {
     @PostMapping(value="/exchange", produces=MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String,Object>> exchange(@AuthenticationPrincipal Jwt cognito,HttpServletRequest request) {
         trusted(request);
-        if (cognito==null || cognito.getClaimAsStringList("cognito:groups")==null
-                || !cognito.getClaimAsStringList("cognito:groups").contains("ADMIN"))
+        if (cognito==null || cognito.getClaimAsStringList(cg)==null
+                || !cognito.getClaimAsStringList(cg).contains(r))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         return cookieResponse(sessions.exchange(cognito));
     }
@@ -93,8 +99,8 @@ public class BackendOwnedTokenController {
     @PostMapping("/authorize")
     public ResponseEntity<Void> authorize(@AuthenticationPrincipal Jwt cognito, HttpServletRequest request) {
         trusted(request);
-        if (cognito==null || cognito.getClaimAsStringList("cognito:groups")==null
-                || !cognito.getClaimAsStringList("cognito:groups").contains("ADMIN"))
+        if (cognito==null || cognito.getClaimAsStringList(cg)==null
+                || !cognito.getClaimAsStringList(cg).contains(r))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         String raw=null;
         if (request.getCookies()!=null) for (var cookie:request.getCookies())
@@ -117,8 +123,8 @@ public class BackendOwnedTokenController {
     public ResponseEntity<Map<String,Object>> refresh(@AuthenticationPrincipal Jwt cognito, HttpServletRequest request) {
         trusted(request);
         // A fresh, verified Cognito ADMIN token is mandatory on EACH rotation. No stale role snapshot.
-        if (cognito==null || cognito.getClaimAsStringList("cognito:groups")==null
-                || !cognito.getClaimAsStringList("cognito:groups").contains("ADMIN"))
+        if (cognito==null || cognito.getClaimAsStringList(cg)==null
+                || !cognito.getClaimAsStringList(cg).contains(r))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         String raw=refreshCookie(request);
         try {

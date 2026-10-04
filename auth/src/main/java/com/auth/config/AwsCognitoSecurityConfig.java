@@ -24,6 +24,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 @Configuration
 @Profile("aws")
 public class AwsCognitoSecurityConfig {
+
+
+    private static final String role = "ADMIN";
+
     @Bean
     JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,
                               @Value("${flashstock.cognito.client-id}") String clientId) {
@@ -64,18 +68,18 @@ public class AwsCognitoSecurityConfig {
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/maps/config").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/auth/me").hasRole("ADMIN");
+                    .requestMatchers(HttpMethod.GET, "/api/auth/me").hasRole(role);
                 if (localTokensEnabled) {
-                    auth.requestMatchers(HttpMethod.POST, "/api/auth/browser/exchange", "/api/auth/browser/authorize", "/api/auth/browser/refresh").hasRole("ADMIN")
+                    auth.requestMatchers(HttpMethod.POST, "/api/auth/browser/exchange", "/api/auth/browser/authorize", "/api/auth/browser/refresh").hasRole(role)
                         .requestMatchers(HttpMethod.POST, "/api/auth/browser/revoke").permitAll();
                 }
-                auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
+                auth.requestMatchers("/api/admin/**").hasRole(role)
                     .anyRequest().denyAll();
             });
         if (localTokensEnabled) {
             // Only these four backend-owned POST handlers bypass Spring's browser CSRF token.
             // Each enforces its own authenticated request origin and BFF service credential.
-            http.csrf(csrf -> csrf.ignoringRequestMatchers(
+            http.csrf(csrf -> csrf.requireCsrfProtectionMatcher(
                     "/api/auth/browser/exchange", "/api/auth/browser/authorize",
                     "/api/auth/browser/refresh", "/api/auth/browser/revoke"));
         }

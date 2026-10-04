@@ -83,14 +83,17 @@ public class AwsCognitoSecurityConfig {
 
             http.csrf(csrf -> csrf.requireCsrfProtectionMatcher(request -> {
 
-                // Conserva la protección CSRF predeterminada de Spring Security.
                 boolean requiresCsrf =
                         CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request);
 
-                // Excepción limitada a los cuatro endpoints POST del BFF.
                 boolean isTrustedBffEndpoint =
                         "POST".equals(request.getMethod())
-                        && BFF_CSRF_EXEMPT_PATHS.contains(request.getServletPath());
+                        && Set.of(
+                            "/api/auth/browser/exchange",
+                            "/api/auth/browser/authorize",
+                            "/api/auth/browser/refresh",
+                            "/api/auth/browser/revoke"
+                        ).contains(request.getServletPath());
 
                 return requiresCsrf && !isTrustedBffEndpoint;
             }));

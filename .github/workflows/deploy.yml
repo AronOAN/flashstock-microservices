@@ -1,111 +1,126 @@
-name: FlashStock Deploy (AWS + Vercel)
+name: FlashStock Deploy (Vercel)
 
-# Manual frontend-only allows publishing HTML/assets/login before ECS business backends are ready.
-# Integrated mode requires working API Gateway /api/inventory (actual backend HTTP 200).
 on:
   workflow_dispatch:
     inputs:
-      backend_ready:
-        description: 'Auth e Inventory desplegados y endpoints verificados'
+      target:
+        description: "Selecciona el tipo de despliegue"
         required: true
-        default: false
-        type: boolean
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
 
 permissions:
   contents: read
 
 jobs:
   frontend-vercel:
-    name: Verify API and deploy existing Vercel project
-
-    if: ${{ inputs.backend_ready == true && github.ref == 'refs/heads/main' }}
-
+    name: Build and Deploy Frontend
     runs-on: ubuntu-latest
 
     env:
-      AWS_API_BASE_URL: https://ly23z3a5hb.execute-api.us-east-1.amazonaws.com
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
 
-      - name: Validate prerequisites and AWS security
+      # ==========================================
+      # 1. OBTENER CÓDIGO
+      # ==========================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ==========================================
+      # 2. PROTEGER PRODUCCIÓN
+      # ==========================================
+
+      - name: Validate production branch
+        if: ${{ inputs.target == 'production' && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::Production deployments are only allowed from main"
+          exit 1
+
+      # ==========================================
+      # 3. VERIFICAR CREDENCIALES VERCEL
+      # ==========================================
+
+      - name: Validate Vercel credentials
         shell: bash
         run: |
           set -euo pipefail
 
           for name in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
-              echo "::error::$name missing"
+              echo "::error::$name is not configured"
               exit 1
             fi
           done
 
-          check_status() {
-            local endpoint="$1"
-            local expected="$2"
-            local actual
+      # ==========================================
+      # 4. CONFIGURAR NODE Y PNPM
+      # ==========================================
 
-            actual="$(curl \
-              --silent \
-              --show-error \
-              --max-time 20 \
-              --output /dev/null \
-              --write-out '%{http_code}' \
-              "${AWS_API_BASE_URL}${endpoint}")"
-
-            echo "${endpoint}: HTTP ${actual} (expected ${expected})"
-
-            if [[ "$actual" != "$expected" ]]; then
-              echo "::error::Unexpected HTTP status for ${endpoint}: ${actual}, expected ${expected}"
-              exit 1
-            fi
-          }
-
-          echo "Checking public endpoints..."
-          check_status "/api/auth/providers" "404"
-          check_status "/api/maps/config" "200"
-
-          echo "Checking protected endpoints without JWT..."
-          check_status "/api/inventory" "401"
-          check_status "/api/auth/me" "401"
-          check_status "/api/admin/metrics" "401"
-
-          echo "AWS API security checks passed."
-
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: pnpm
           cache-dependency-path: flashstock-frontend/pnpm-lock.yaml
 
-      - name: Install and validate
+      # ==========================================
+      # 5. INSTALAR DEPENDENCIAS
+      # ==========================================
+
+      - name: Install dependencies
         run: |
-          set -euo pipefail
-
-          test -f flashstock-frontend/package.json
-          test -f flashstock-frontend/pnpm-lock.yaml
-
           pnpm --dir flashstock-frontend install --frozen-lockfile
+
+      # ==========================================
+      # 6. VALIDAR FRONTEND
+      # ==========================================
+
+      - name: ESLint
+        run: |
           pnpm --dir flashstock-frontend run lint
 
-      - name: Deploy via Vercel CLI
+      - name: Authentication security tests
         run: |
-          set -euo pipefail
+          pnpm --dir flashstock-frontend run test:security
 
-          npm install --global vercel@latest
+      # ==========================================
+      # 7. INSTALAR VERCEL CLI
+      # ==========================================
 
-          # Ejecutar desde la raíz del monorepositorio.
-          test -f flashstock-frontend/package.json
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
 
-          # Vercel utiliza el Root Directory configurado en el proyecto.
-          # La compilación ocurre remotamente, con variables Production.
+      # ==========================================
+      # 8. DESPLEGAR PREVIEW
+      # ==========================================
+
+      - name: Deploy Preview
+        if: ${{ inputs.target == 'preview' }}
+        run: |
+          vercel deploy \
+            --yes \
+            --token "$VERCEL_TOKEN"
+
+      # ==========================================
+      # 9. DESPLEGAR PRODUCCIÓN
+      # ==========================================
+
+      - name: Deploy Production
+        if: ${{ inputs.target == 'production' }}
+        run: |
           vercel deploy \
             --prod \
             --yes \

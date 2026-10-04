@@ -20,6 +20,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.NullSecurityContextRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import java.util.Set;
+import org.springframework.security.web.csrf.CsrfFilter;
+
 
 @Configuration
 @Profile("aws")
@@ -77,11 +80,20 @@ public class AwsCognitoSecurityConfig {
                     .anyRequest().denyAll();
             });
         if (localTokensEnabled) {
-            // Only these four backend-owned POST handlers bypass Spring's browser CSRF token.
-            // Each enforces its own authenticated request origin and BFF service credential.
-            http.csrf(csrf -> csrf.requireCsrfProtectionMatcher(
-                    "/api/auth/browser/exchange", "/api/auth/browser/authorize",
-                    "/api/auth/browser/refresh", "/api/auth/browser/revoke"));
+
+            http.csrf(csrf -> csrf.requireCsrfProtectionMatcher(request -> {
+
+                // Conserva la protección CSRF predeterminada de Spring Security.
+                boolean requiresCsrf =
+                        CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request);
+
+                // Excepción limitada a los cuatro endpoints POST del BFF.
+                boolean isTrustedBffEndpoint =
+                        "POST".equals(request.getMethod())
+                        && BFF_CSRF_EXEMPT_PATHS.contains(request.getServletPath());
+
+                return requiresCsrf && !isTrustedBffEndpoint;
+            }));
         }
         http.oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
                 jwt.jwtAuthenticationConverter(new CognitoAuthoritiesConverter())));

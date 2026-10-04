@@ -81,21 +81,28 @@ public class AwsCognitoSecurityConfig {
             });
         if (localTokensEnabled) {
 
-            http.csrf(csrf -> csrf.requireCsrfProtectionMatcher(request -> {
+            // S4502: reviewed exception for four server-to-server BFF operations.
+            //
+            // BackendOwnedTokenController independently validates:
+            // - Exact trusted Origin.
+            // - Server-only BFF shared secret.
+            // - Cognito ADMIN access token where required.
+            //
+            // No browser session cookie authenticates the Spring Security principal.
+            // All other unsafe requests retain default CSRF protection.
 
-                boolean requiresCsrf =
-                        CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request);
+            http.csrf(csrf -> csrf.ignoringRequestMatchers(request -> {
 
-                boolean isTrustedBffEndpoint =
-                        "POST".equals(request.getMethod())
-                        && Set.of(
-                            "/api/auth/browser/exchange",
-                            "/api/auth/browser/authorize",
-                            "/api/auth/browser/refresh",
-                            "/api/auth/browser/revoke"
-                        ).contains(request.getServletPath());
+                boolean isPost = HttpMethod.POST.matches(request.getMethod());
 
-                return requiresCsrf && !isTrustedBffEndpoint;
+                boolean isBffEndpoint = Set.of(
+                        "/api/auth/browser/exchange",
+                        "/api/auth/browser/authorize",
+                        "/api/auth/browser/refresh",
+                        "/api/auth/browser/revoke"
+                ).contains(request.getServletPath());
+
+                return isPost && isBffEndpoint;
             }));
         }
         http.oauth2ResourceServer(oauth -> oauth.jwt(jwt ->

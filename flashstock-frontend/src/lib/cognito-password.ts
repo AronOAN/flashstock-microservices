@@ -3,6 +3,7 @@ import { clearSessionCookies, cookieOptions, getRefreshState, getSession, refres
   REFRESH_TTL_SECONDS, seal, sealRefresh, sessionCookieName, siteOrigin,
   type FlashStockRefresh, type FlashStockSession } from '@/lib/flashstock-session';
 import { NextRequest, NextResponse } from 'next/server';
+import { callOwned, applyOwnedCookies, clearOwnedCookies, type AuthBackendResponse } from '@/lib/auth-backend';
 
 const challenges = ['NEW_PASSWORD_REQUIRED', 'SMS_MFA', 'SOFTWARE_TOKEN_MFA', 'EMAIL_MFA', 'EMAIL_OTP', 'SMS_OTP'] as const;
 export type ChallengeName = typeof challenges[number];
@@ -96,6 +97,10 @@ export async function completeSignIn(result: CognitoResult, redirect?: NextRespo
       token.RefreshToken.length < 20 || token.RefreshToken.length > 4096) return null;
   const user = await cognitoUser(token.AccessToken);
   if (!user) return null;
+  // Issue an independent FlashStock family only after Cognito has validated the login/MFA.
+  // When the feature is enabled, fail closed if API Gateway/Auth has not been deployed.
+  const issued = process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true' ? await callOwned('exchange',token.AccessToken) : null;
+  if (issued && !issued.ok) return issued.status===403 ? authError(403,'Acceso reservado a administradores autorizados') : null;
   const now = Date.now();
   const session: FlashStockSession = { accessToken: token.AccessToken,
     expiresAt: now + Math.max(1, token.ExpiresIn - 30) * 1000,
@@ -106,6 +111,7 @@ export async function completeSignIn(result: CognitoResult, redirect?: NextRespo
   const encryptedRefresh = sealRefresh(refresh);
   if (encryptedSession.length > 3800 || encryptedRefresh.length > 3800) return null;
   const response = redirect || NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+  if (issued) applyOwnedCookies(response, issued);
   response.cookies.set(sessionCookieName(), encryptedSession, { ...cookieOptions(), maxAge: token.ExpiresIn });
   response.cookies.set(refreshCookieName(), encryptedRefresh, { ...cookieOptions(), maxAge: REFRESH_TTL_SECONDS });
   response.cookies.set(challengeCookieName(), '', { ...cookieOptions(), maxAge: 0 });
@@ -117,6 +123,7 @@ export type SessionResolution = {
   refreshed?: { session: FlashStockSession; accessMaxAge: number; refresh?: FlashStockRefresh };
   clear?: boolean;
   unavailable?: boolean;
+  owned?: AuthBackendResponse;
 };
 
 export async function resolveSession(): Promise<SessionResolution> {
@@ -147,7 +154,14 @@ export async function resolveSession(): Promise<SessionResolution> {
     if (seal(session).length > 3800 || (rotated && sealRefresh(rotated).length > 3800)) {
       return { session: existing, unavailable: !existing };
     }
-    return { session, refreshed: { session, accessMaxAge: token.ExpiresIn, refresh: rotated } };
+    // Only Auth can rotate our RS256 refresh cookie; BFF never receives its raw value.
+    const owned = process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true' ? await callOwned('refresh',token.AccessToken) : null;
+    if (owned && !owned.ok) {
+      const denied = [401,403,502].includes(owned.status);
+      return {session: null, clear: denied, unavailable: !denied,
+        refreshed: denied ? undefined : { session, accessMaxAge: token.ExpiresIn, refresh: rotated } };
+    }
+    return { session, refreshed: { session, accessMaxAge: token.ExpiresIn, refresh: rotated }, owned: owned || undefined };
   } catch {
     return { session: existing, unavailable: !existing };
   }
@@ -163,6 +177,8 @@ export function attachSessionCookies(response: NextResponse, state: SessionResol
         { ...cookieOptions(), maxAge: Math.max(0, Math.floor((state.refreshed.refresh.expiresAt - Date.now()) / 1000)) });
     }
   }
+  if (state.owned) applyOwnedCookies(response, state.owned);
+  if (state.clear) clearOwnedCookies(response);
   return response;
 }
 

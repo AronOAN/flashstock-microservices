@@ -21,14 +21,21 @@ resource "aws_ecs_task_definition" "auth" {
       { name = "SPRING_DATASOURCE_URL", value = "jdbc:postgresql://${aws_db_instance.inventory[0].address}:5432/${aws_db_instance.inventory[0].db_name}?sslmode=require" },
       { name = "SPRING_DATASOURCE_USERNAME", value = aws_db_instance.inventory[0].username },
       { name = "SPRING_DATASOURCE_DRIVER_CLASS_NAME", value = "org.postgresql.Driver" },
+      { name = "FLASHSTOCK_TOKENS_ENABLED", value = tostring(var.enable_flashstock_issued_tokens) },
       { name = "CASHFLOW_UNIT_VALUE", value = "1" },
+      { name = "FLASHSTOCK_SITE_URL", value = var.vercel_site_url },
       # Legacy email-based ADMIN escalation is explicitly disabled in application-aws.properties.
       { name = "ADMIN_EMAIL", value = "" },
       { name = "ADMIN_EMAIL_2", value = "" }
     ]
-    secrets = [
-      { name = "SPRING_DATASOURCE_PASSWORD", valueFrom = "${aws_db_instance.inventory[0].master_user_secret[0].secret_arn}:password::" }
-    ]
+    secrets = concat(
+      [{ name = "SPRING_DATASOURCE_PASSWORD", valueFrom = "${aws_db_instance.inventory[0].master_user_secret[0].secret_arn}:password::" }],
+      var.enable_flashstock_issued_tokens ? [
+        { name = "FLASHSTOCK_JWT_PRIVATE_KEY_DER_BASE64", valueFrom = var.flashstock_jwt_private_key_secret_arn },
+        { name = "FLASHSTOCK_JWT_PUBLIC_KEY_DER_BASE64", valueFrom = var.flashstock_jwt_public_key_secret_arn },
+        { name = "FLASHSTOCK_BFF_SHARED_SECRET", valueFrom = var.flashstock_bff_shared_secret_arn }
+      ] : []
+    )
     logConfiguration = {
       logDriver = "awslogs"
       options = {

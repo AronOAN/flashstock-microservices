@@ -65,7 +65,7 @@ jobs:
           }
 
           echo "Checking public endpoints..."
-          check_status "/api/auth/providers" "200"
+          check_status "/api/auth/providers" "404"
           check_status "/api/maps/config" "200"
 
           echo "Checking protected endpoints without JWT..."

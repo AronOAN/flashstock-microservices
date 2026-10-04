@@ -7,6 +7,7 @@ import nextPlugin from "@next/eslint-plugin-next";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
+
 export default defineConfig([
 
   // =====================================================
@@ -37,6 +38,27 @@ export default defineConfig([
       js.configs.recommended,
     ],
   },
+  // =====================================================
+// PRUEBAS UNITARIAS - NODE.JS
+// =====================================================
+
+{
+  files: ["tests/**/*.{js,cjs,mjs}"],
+
+  languageOptions: {
+    globals: {
+      ...globals.node,
+
+      // APIs disponibles en Node.js moderno
+      URL: "readonly",
+      Headers: "readonly",
+      AbortSignal: "readonly",
+      console: "readonly",
+      Buffer: "readonly",
+      __dirname: "readonly",
+    },
+  },
+},
 
   // =====================================================
   // TYPESCRIPT

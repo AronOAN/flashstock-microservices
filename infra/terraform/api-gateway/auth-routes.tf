@@ -1,11 +1,16 @@
-# No wildcard API permissions. Only the Auth endpoints implemented in its AWS profile.
-# Preserve the original request path through the existing VPC Link -> ALB listener.
+# Explicit API Gateway allowlist. Cognito authorizes exchange; the refresh/revoke
+# routes validate FlashStock-signed single-use refresh JWTs and DB session state.
 locals {
   auth_routes = {
-    "GET /api/auth/providers" = false
     "GET /api/maps/config"    = false
     "GET /api/auth/me"        = true
     "GET /api/admin/metrics"  = true
+  }
+  flashstock_token_routes = {
+    "POST /api/auth/browser/exchange" = true
+    "POST /api/auth/browser/authorize" = true
+    "POST /api/auth/browser/refresh"  = true
+    "POST /api/auth/browser/revoke"   = false
   }
 }
 resource "aws_apigatewayv2_integration" "auth" {
@@ -24,7 +29,10 @@ resource "aws_apigatewayv2_integration" "auth" {
   depends_on = [aws_ecs_service.auth]
 }
 resource "aws_apigatewayv2_route" "auth" {
-  for_each             = var.enable_auth_routes ? local.auth_routes : {}
+  for_each = var.enable_auth_routes ? merge(
+    local.auth_routes,
+    var.enable_flashstock_token_routes ? local.flashstock_token_routes : {}
+  ) : {}
   api_id               = aws_apigatewayv2_api.flashstock.id
   route_key            = each.key
   target               = "integrations/${aws_apigatewayv2_integration.auth[0].id}"

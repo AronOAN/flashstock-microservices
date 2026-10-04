@@ -40,3 +40,9 @@ build/
 .env
 .env.*
 target/
+
+# Never commit local RSA signing material
+*.pem
+*.key
+*.der.b64
+*.p8

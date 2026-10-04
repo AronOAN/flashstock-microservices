@@ -33,22 +33,34 @@ class AuthAwsSecurityWebTest {
     @MockitoBean private JwtDecoder decoder;
 
     @Test
-    void publicProvidersRequireNoTokenButCookiesCannotAuthorizeMe() throws Exception {
-        mvc.perform(get("/api/auth/providers")).andExpect(status().isOk());
+    void cookieCannotAuthorizeMe() throws Exception {
         mvc.perform(get("/api/auth/me").cookie(new Cookie("JSESSIONID", "forged")))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/me")).andExpect(status().isForbidden());
     }
 
     @Test
-    void userTokenCanReadIdentityButNotAdminMetrics() throws Exception {
+    void userTokenCannotReadAdminOnlyIdentityOrMetrics() throws Exception {
         when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("test")
                 .header("alg", "RS256").subject("user-1")
                 .claim("token_use", "access").claim("cognito:groups", List.of("USER"))
                 .build());
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer user"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/metrics").header("Authorization", "Bearer user"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminTokenCanReadIdentity() throws Exception {
+        when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("test-admin")
+                .header("alg", "RS256").subject("cognito-admin")
+                .claim("token_use", "access").claim("cognito:groups", List.of("ADMIN"))
+                .build());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer admin"))
+                .andExpect(status().isOk());
+        // A removed AWS route must not remain accidentally usable even with an admin token.
+        mvc.perform(get("/api/auth/providers").header("Authorization", "Bearer admin"))
                 .andExpect(status().isForbidden());
     }
 }

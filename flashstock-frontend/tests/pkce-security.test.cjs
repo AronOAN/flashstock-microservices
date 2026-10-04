@@ -1,10 +1,11 @@
-/* global __dirname, process, Buffer, URL, URLSearchParams, AbortSignal */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { randomBytes } = require('node:crypto');
 const { runInNewContext } = require('node:vm');
 const ts = require('typescript');
+
+
 
 // Run the actual Next.js helper without reaching Cognito or exposing credentials.
 const source = readFileSync(require('node:path').join(__dirname, '../src/lib/cognito-oauth.ts'), 'utf8');

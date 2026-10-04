@@ -2533,10 +2533,22 @@
             return logoutLink;
         }
 
-        logoutLink = document.createElement('a');
+        logoutLink = document.createElement('button');
         logoutLink.id = 'navbarLogoutLink';
-        logoutLink.href = '/auth/logout';
-        logoutLink.target = '_top';
+        logoutLink.type = 'button';
+    logoutLink.addEventListener('click', async () => {
+      logoutLink.disabled = true;
+      try {
+        const response = await fetch('/auth/logout', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        if (!response.ok) throw new Error('logout-failed');
+        window.location.assign('/');
+      } catch {
+        logoutLink.disabled = false;
+        window.alert('No se pudo cerrar la sesión de forma segura. Inténtalo nuevamente.');
+      }
+    });
         logoutLink.className = 'btn border border-secondary rounded-pill px-3 text-primary me-3 my-auto';
         logoutLink.innerHTML = '<i class="fas fa-sign-out-alt me-2"></i>Cerrar sesion';
         logoutLink.style.display = 'none';

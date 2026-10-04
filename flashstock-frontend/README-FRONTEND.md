@@ -27,3 +27,9 @@ Si el segundo comando indica que no existe un estilo, asígnalo al cliente desde
 Si la interfaz indica que no puede verificar la sesión justo después de iniciar sesión, comprueba `GET /api/auth/me` en Network: la ruta de AWS debe aceptar el Access Token y el servicio Auth debe responder `data.authenticated=true`. Un `401/403` de Auth ya no se presenta como sesión anónima. Comprueba también la existencia de `__Host-flashstock-session` y `__Host-flashstock-refresh` en las cookies del navegador **sin copiar sus valores**.
 
 Orden, Boletas y Shipping siguen cerrados en el proxy mediante `FLASHSTOCK_ORDER_ROUTES_ENABLED=false`, y Terraform no publica sus rutas en API Gateway. Consulta `CAMBIOS-SEGURIDAD-LOGIN.md` en la raíz antes de habilitar cualquiera de ellas.
+
+
+
+
+## Backend-owned RS256 admin-only
+La autoridad de emisión/rotación/revocación está en Auth, `/api/auth/browser/*`. Los JWT crudos no se devuelven a JS; BFF solo reenvía de forma controlada cookies `HttpOnly` del backend. `/auth/logout` requiere POST con Origin del sitio. Activación/limitaciones: `AUTH-ONLY-DEPLOYMENT.md`. Cognito USER_PASSWORD_AUTH y PKCE de entrada siguen siendo transportados por Next, no autorizan roles ni emiten JWT de FlashStock.

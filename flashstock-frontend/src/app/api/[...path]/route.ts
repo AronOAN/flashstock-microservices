@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { attachSessionCookies, resolveSession } from '@/lib/cognito-password';
+import { callOwned } from '@/lib/auth-backend';
 import { siteOrigin } from '@/lib/flashstock-session';
 
 export const runtime='nodejs';
@@ -21,19 +22,28 @@ async function proxy(req:NextRequest,ctx:Context):Promise<NextResponse> {
     if (!origin || origin !== siteOrigin()) return json(403,'Origen no autorizado');
   }
   const path=`/api/${segments.map(encodeURIComponent).join('/')}`;
+  // Token operations require dedicated server-only BFF handlers, never generic proxying.
+  // Only the identity endpoint is intentionally reachable through this generic proxy.
+  // The backend-owned browser token operations are NEVER browser-proxyable.
+  if (segments[0]==='auth' && !(path==='/api/auth/me' && req.method==='GET')) return json(404,'Ruta no disponible');
   // Keep all order-related APIs unpublished until backend ownership and shipping checks pass.
   if (['orders','receipts','shipping'].includes(segments[0])
       && process.env.FLASHSTOCK_ORDER_ROUTES_ENABLED !== 'true') {
     return json(503,'Pedidos temporalmente no disponibles');
   }
   if (path === '/api/receipts/send-email') return json(404,'Ruta no disponible');
-  if (path==='/api/auth/providers' && req.method==='GET') return json(200,'Proveedores',{
-    google:false,microsoft:false,cognito:!!(process.env.COGNITO_ISSUER_URL && process.env.COGNITO_APP_CLIENT_ID)
-  });
   const resolved=await resolveSession();
   const finish=(response:NextResponse)=>attachSessionCookies(response,resolved);
   if (resolved.unavailable) return finish(json(503,'No se pudo renovar la sesión con Cognito'));
   const session=resolved.session;
+  if (process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true'
+      && !['/api/auth/providers','/api/maps/config'].includes(path) && session) {
+    const allowed = await callOwned('authorize',session.accessToken);
+    if (!allowed.ok) return finish(json(allowed.status===403?403:401,'Sesión administrativa no autorizada'));
+  }
+  if (process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true'
+      && !['/api/auth/providers','/api/maps/config'].includes(path) && !session
+      && path!=='/api/auth/me') return finish(json(401,'Inicio de sesión administrativo requerido'));
   if (path==='/api/auth/me' && req.method==='GET' && !session) return finish(anonymous());
   const base=process.env.FLASHSTOCK_API_BASE_URL;
   if (!base || !/^https:\/\/[a-z0-9.-]+\/?$/i.test(base)) return finish(json(503,'API AWS sin configurar'));

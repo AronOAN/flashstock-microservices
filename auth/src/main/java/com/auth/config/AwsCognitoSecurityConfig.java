@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.NullSecurityContextRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 
 @Configuration
 @Profile("aws")
@@ -46,9 +47,12 @@ public class AwsCognitoSecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
-        return http
-            // Auth exposes only safe GET/OPTIONS routes; keep Spring's default CSRF protection.
+    SecurityFilterChain cognitoSecurityFilterChain(
+            HttpSecurity http,
+            @Value("${flashstock.tokens.enabled:false}") boolean localTokensEnabled) throws Exception {
+        // The general HTTP Authorization Bearer is ALWAYS a Cognito access token.
+        // FlashStock-issued JWTs are verified only in the narrowly scoped backend-owned controller.
+        http
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
             .requestCache(cache -> cache.requestCache(new NullRequestCache()))
@@ -56,15 +60,27 @@ public class AwsCognitoSecurityConfig {
             .httpBasic(AbstractHttpConfigurer::disable)
             .oauth2Login(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/maps/config", "/api/auth/providers").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .anyRequest().denyAll()
-            )
-            .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(new CognitoAuthoritiesConverter())))
-            .build();
+            .authorizeHttpRequests(auth -> {
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/maps/config").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/auth/me").hasRole("ADMIN");
+                if (localTokensEnabled) {
+                    auth.requestMatchers(HttpMethod.POST, "/api/auth/browser/exchange", "/api/auth/browser/authorize", "/api/auth/browser/refresh").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/auth/browser/revoke").permitAll();
+                }
+                auth.requestMatchers("/api/admin/**").hasRole("ADMIN")
+                    .anyRequest().denyAll();
+            });
+        if (localTokensEnabled) {
+            // Only these four backend-owned POST handlers bypass Spring's browser CSRF token.
+            // Each enforces its own authenticated request origin and BFF service credential.
+            http.csrf(csrf -> csrf.ignoringRequestMatchers(
+                    "/api/auth/browser/exchange", "/api/auth/browser/authorize",
+                    "/api/auth/browser/refresh", "/api/auth/browser/revoke"));
+        }
+        http.oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
+                jwt.jwtAuthenticationConverter(new CognitoAuthoritiesConverter())));
+        return http.build();
     }
 }

@@ -84,7 +84,7 @@ export default function LoginForm({ loginError = false }: { loginError?: boolean
               {busy ? 'Verificando…' : challenge ? 'Verificar' : 'Iniciar sesión'}
             </button>
           </form>
-          {!challenge && <Link className="fs-login-pkce" href="/auth/pkce">
+          {!challenge && <Link className="fs-login-pkce" href="/auth/pkce" prefetch={false}>
             Acceder mediante Cognito
           </Link>}
           {!challenge && <p className="fs-login-method-note">Esta opción abre la página de Cognito y usa Authorization Code con PKCE.</p>}

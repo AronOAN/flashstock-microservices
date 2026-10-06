@@ -31,6 +31,16 @@ resource "aws_cognito_user_pool" "flashstock" {
       priority = 1
     }
   }
+
+
+  lifecycle {
+    prevent_destroy = true
+
+    ignore_changes = [
+      schema
+    ]
+  }
+
 }
 
 # Cliente público sin secreto: permite el formulario propio (InitiateAuth) y

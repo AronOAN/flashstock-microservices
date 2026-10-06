@@ -2,15 +2,15 @@
 # routes validate FlashStock-signed single-use refresh JWTs and DB session state.
 locals {
   auth_routes = {
-    "GET /api/maps/config"    = false
-    "GET /api/auth/me"        = true
-    "GET /api/admin/metrics"  = true
+    "GET /api/maps/config"   = false
+    "GET /api/auth/me"       = true
+    "GET /api/admin/metrics" = true
   }
   flashstock_token_routes = {
-    "POST /api/auth/browser/exchange" = true
+    "POST /api/auth/browser/exchange"  = true
     "POST /api/auth/browser/authorize" = true
-    "POST /api/auth/browser/refresh"  = true
-    "POST /api/auth/browser/revoke"   = false
+    "POST /api/auth/browser/refresh"   = true
+    "POST /api/auth/browser/revoke"    = false
   }
 }
 resource "aws_apigatewayv2_integration" "auth" {

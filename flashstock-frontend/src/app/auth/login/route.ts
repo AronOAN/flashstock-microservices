@@ -6,4 +6,5 @@ export function GET() {
   const response = NextResponse.redirect(new URL('/login', siteOrigin()));
   response.headers.set('Cache-Control', 'no-store');
   return response;
+  
 }

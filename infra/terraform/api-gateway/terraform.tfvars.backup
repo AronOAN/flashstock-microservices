@@ -1,0 +1,87 @@
+# ============================================================
+# FLASHSTOCK - CONFIGURACIÓN GENERAL AWS
+# ============================================================
+
+aws_region         = "us-east-1"
+project_name       = "flashstock"
+environment        = "dev"
+log_retention_days = 14
+
+
+# ============================================================
+# VERCEL + AMAZON COGNITO (EXISTENTES)
+# ============================================================
+
+vercel_site_url       = "https://flashstock-microservices.vercel.app"
+cognito_domain_prefix = "flashstock-dev-aron"
+
+
+# ============================================================
+# FASE 1: INFRAESTRUCTURA INVENTORY
+# ============================================================
+
+
+# Infraestructura existente: conservar.
+enable_inventory_foundation = true
+# Registrar migración privada.
+
+enable_inventory_migration_task = true
+
+# Todavía no arrancar Spring Boot. 
+#para comenzar la migracion se activa el spring
+enable_inventory_service = true
+#se espero a que el ecs estuvier aactivo para cambiar de false a true las rutas:
+enable_inventory_routes = true
+
+#
+
+
+# ============================================================
+# RED PRIVADA FLASHSTOCK
+# ============================================================
+
+flashstock_vpc_cidr = "10.72.0.0/16"
+
+
+# ============================================================
+# POSTGRESQL RDS
+# ============================================================
+
+inventory_db_instance_class = "db.t3.micro"
+
+
+# ============================================================
+# ECS FARGATE
+# Se completarán cuando despleguemos el contenedor Inventory.
+# ============================================================
+
+ecs_task_execution_role_arn = "arn:aws:iam::823102413975:role/LabRole"
+
+
+# Imagen que ya publicaste.
+inventory_image_uri = "823102413975.dkr.ecr.us-east-1.amazonaws.com/flashstock-dev-inventory:inventory-fix-7858ae16ed54-20261002225658"
+
+
+#Despues de completar el deploy de invetroy correctamente, seguimos con el siguiten service:
+# AUTH - primera fase
+enable_auth_foundation = true
+#Segunda fase, al completar el plan con terraform, y tener el .jar correctamente, se hace true el enable_auth_service
+#al cambiarle la etiqueta se puede correr el srping
+auth_image_uri = "823102413975.dkr.ecr.us-east-1.amazonaws.com/flashstock-dev-auth:auth-fix-20261002224731"
+
+enable_auth_service = true
+enable_auth_routes  = true
+
+
+#Lo mismo para nuestro microservicio orden:
+#terraform plan -out=orden-foundation.tfplan
+
+#terraform show -no-color orden-foundation.tfplan
+# ORDEN — Primera etapa
+enable_orden_foundation = true
+#al funcionar esos anteriores comandos, se creara dentro del ecr la imagen que usaremos, para eso el foundation, nos da la imagen ocn el tag y lo usamos en el url:
+#terraform apply orden-foundation.tfplan
+enable_orden_service = false
+
+
+inventory_desired_count = 1

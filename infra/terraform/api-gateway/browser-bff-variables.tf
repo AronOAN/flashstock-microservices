@@ -1,7 +1,7 @@
 variable "flashstock_bff_shared_secret_arn" {
-  type = string
+  type        = string
   description = "Secrets Manager ARN for a base64-encoded random 32+ byte BFF service secret; provision before enabling Auth issued tokens."
-  default = ""
+  default     = ""
   validation {
     condition = !var.enable_flashstock_issued_tokens || (
       can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+$", var.flashstock_bff_shared_secret_arn)) &&

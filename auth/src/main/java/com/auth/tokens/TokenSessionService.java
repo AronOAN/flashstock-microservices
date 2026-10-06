@@ -27,21 +27,20 @@ import java.util.UUID;
 @Profile("aws")
 @ConditionalOnProperty(name="flashstock.tokens.enabled", havingValue="true")
 public class TokenSessionService {
-    public record TokenPair(String accessToken, String refreshToken, String tokenType,
-                            long expiresIn, long refreshExpiresIn) { }
+    public record TokenPair(String accessToken, String refreshToken, String tokenType,long expiresIn, long refreshExpiresIn) { }
+
     private enum Status { OK, INVALID, REUSED }
+    
     private record Outcome(Status status, TokenPair pair) { }
     private record Family(long expiry, Long revoked) { }
-    private record Row(String family, String subject, String username, String roles, String hash,
-                       long expires, Long used, Long revoked) { }
+    private record Row(String family, String subject, String username, String roles, String hash,long expires, Long used, Long revoked) { }
 
     private final FlashstockJwtService jwt;
     private final JdbcTemplate db;
     private final TransactionTemplate transaction;
     private final String cognitoIssuer;
 
-    public TokenSessionService(FlashstockJwtService jwt, JdbcTemplate db, TransactionTemplate transaction,
-                               @Value("${flashstock.cognito.issuer}") String cognitoIssuer) {
+    public TokenSessionService(FlashstockJwtService jwt, JdbcTemplate db, TransactionTemplate transaction,@Value("${flashstock.cognito.issuer}") String cognitoIssuer) {
         this.jwt=jwt; this.db=db; this.transaction=transaction; this.cognitoIssuer=cognitoIssuer;
     }
 
@@ -136,15 +135,13 @@ public class TokenSessionService {
         return rows.isEmpty()?null:rows.get(0);
     }
     private Row lockSession(String jti) {
-        var rows=db.query("SELECT family_id,subject_id,username,roles,token_sha256,expires_at,used_at,revoked_at " +
-                        "FROM flashstock_refresh_sessions WHERE jti=? FOR UPDATE",
+        var rows=db.query("SELECT family_id,subject_id,username,roles,token_sha256,expires_at,used_at,revoked_at " +"FROM flashstock_refresh_sessions WHERE jti=? FOR UPDATE",
                 (rs,n)->new Row(rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),
                         rs.getLong(6),(Long)rs.getObject(7),(Long)rs.getObject(8)),jti);
         return rows.isEmpty()?null:rows.get(0);
     }
     private void insertSession(FlashstockJwtService.Issued token,String subject,String username,List<String> roles) {
-        db.update("INSERT INTO flashstock_refresh_sessions " +
-                "(jti,family_id,subject_id,username,roles,token_sha256,expires_at) VALUES (?,?,?,?,?,?,?)",
+        db.update("INSERT INTO flashstock_refresh_sessions " +"(jti,family_id,subject_id,username,roles,token_sha256,expires_at) VALUES (?,?,?,?,?,?,?)",
                 token.refreshJti(),token.familyId(),subject,username,String.join(",",roles),
                 sha256(token.refreshToken()),token.refreshExpiresAt().toEpochMilli());
     }

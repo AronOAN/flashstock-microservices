@@ -36,9 +36,7 @@ public class BackendOwnedTokenController {
 
     private static final String cg = "cognito:groups";
 
-    public BackendOwnedTokenController(TokenSessionService sessions, FlashstockJwtService jwt,
-            @Value("${flashstock.browser.site-origin}") String siteOrigin,
-            @Value("${flashstock.browser.bff-secret-base64}") String bffSecretBase64) {
+    public BackendOwnedTokenController(TokenSessionService sessions, FlashstockJwtService jwt,@Value("${flashstock.browser.site-origin}") String siteOrigin,@Value("${flashstock.browser.bff-secret-base64}") String bffSecretBase64) {
         this.sessions=sessions; this.jwt=jwt;
         if (!siteOrigin.matches("https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?")
                 && !siteOrigin.matches("http://localhost(:[0-9]{1,5})?")) {
@@ -52,8 +50,10 @@ public class BackendOwnedTokenController {
     }
 
     private void trusted(HttpServletRequest request) {
+
         String sent=request.getHeader("X-Flashstock-BFF-Secret");
         byte[] proposed=new byte[0];
+        
         if (sent!=null && sent.length()<=256) {
             try { proposed=Base64.getDecoder().decode(sent); }
             catch (IllegalArgumentException ignored) { /* reject */ }
@@ -148,4 +148,5 @@ public class BackendOwnedTokenController {
                 .header(HttpHeaders.SET_COOKIE,tokenCookie(false,"",0).toString())
                 .header(HttpHeaders.SET_COOKIE,tokenCookie(true,"",0).toString()).build();
     }
+
 }

@@ -37,10 +37,7 @@ public class SecurityConfig {
      * - client_id esperado.
      */
     @Bean
-    JwtDecoder cognitoDecoder(
-            @Value("${flashstock.cognito.issuer}") String issuer,
-            @Value("${flashstock.cognito.client-id}") String clientId
-    ) {
+    JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,@Value("${flashstock.cognito.client-id}") String clientId) {
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(issuer + "/.well-known/jwks.json")

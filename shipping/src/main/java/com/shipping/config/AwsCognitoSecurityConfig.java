@@ -25,6 +25,8 @@ import org.springframework.security.web.savedrequest.NullRequestCache;
 public class AwsCognitoSecurityConfig {
     private static final String ADMIN_ROLE = "ADMIN";
     private static final String API_SUBPATH = "/api/shipping/**";
+    private static final String API_B = "/api/shipping";
+
     @Bean
     JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,
                               @Value("${flashstock.cognito.client-id}") String clientId) {
@@ -55,7 +57,7 @@ public class AwsCognitoSecurityConfig {
     SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http) throws Exception {
         return http
             // Shipping accepts only explicit Bearer tokens, never browser session cookies.
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/shipping", API_SUBPATH))
+            .csrf(csrf -> csrf.ignoringRequestMatchers(API_B, API_SUBPATH))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
             .requestCache(cache -> cache.requestCache(new NullRequestCache()))
@@ -66,9 +68,9 @@ public class AwsCognitoSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/shipping").hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.GET, API_B).hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.GET, API_SUBPATH).authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/shipping", API_SUBPATH).hasRole(ADMIN_ROLE)
+                .requestMatchers(HttpMethod.POST, API_B, API_SUBPATH).hasRole(ADMIN_ROLE)
                 .requestMatchers(HttpMethod.PATCH, API_SUBPATH).hasRole(ADMIN_ROLE)
                 .anyRequest().denyAll()
             )

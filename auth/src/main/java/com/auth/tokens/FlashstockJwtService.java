@@ -69,8 +69,11 @@ public class FlashstockJwtService {
             this.issuer=issuer; this.audience=audience; this.refreshAudience=refreshAudience;
             this.keyId=keyId; this.accessSeconds=accessSeconds; this.refreshSeconds=refreshSeconds;
             // Fail fast if private/public keys are not an actual signing pair.
+            
             String probe = Jwts.builder().subject("keypair-self-test").signWith(this.privateKey, Jwts.SIG.RS256).compact();
+
             Jwts.parser().verifyWith(this.publicKey).build().parseSignedClaims(probe);
+
         } catch (Exception ex) {
             throw new IllegalStateException("FlashStock RSA signing key configuration invalid", ex);
         }
@@ -93,6 +96,7 @@ public class FlashstockJwtService {
                 .issuedAt(Date.from(now)).notBefore(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(accessSeconds)))
                 .signWith(privateKey,Jwts.SIG.RS256).compact();
+                
         String refresh=Jwts.builder()
                 .header().keyId(keyId).and()
                 .issuer(issuer).subject(subject).audience().add(refreshAudience).and()

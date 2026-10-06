@@ -223,8 +223,12 @@ services:
 
       CASHFLOW_UNIT_VALUE: "12.5"
 
-      GOOGLE_CLIENT_ID: disabled-google-client-id
-      GOOGLE_CLIENT_SECRET: disabled-google-client-secret
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      COGNITO_ISSUER_URL: ${COGNITO_ISSUER_URL}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID}
+
+
 
     expose:
       - "8082"

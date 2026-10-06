@@ -1,7 +1,2 @@
-
-export default function Home() {
-  return (
-    <iframe src="/static/index.html" style={{ width: '100%', height: '100vh', border: 'none' }}
-    title="FlashStock"></iframe>
-  );
-}
+import HomePage from '@/components/home/HomePage';
+export default function Page(){return <HomePage/>;}

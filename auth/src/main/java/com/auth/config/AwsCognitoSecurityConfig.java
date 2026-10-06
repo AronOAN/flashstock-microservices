@@ -1,17 +1,18 @@
 package com.auth.config;
 
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -19,17 +20,12 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.NullSecurityContextRepository;
 import org.springframework.security.web.savedrequest.NullRequestCache;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import java.util.Set;
-import org.springframework.security.web.csrf.CsrfFilter;
-
 
 @Configuration
 @Profile("aws")
 public class AwsCognitoSecurityConfig {
-
-
-    private static final String role = "ADMIN";
+    private static final String USER = "USER";
+    private static final String ADMIN = "ADMIN";
 
     @Bean
     JwtDecoder cognitoDecoder(@Value("${flashstock.cognito.issuer}") String issuer,
@@ -54,15 +50,11 @@ public class AwsCognitoSecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain cognitoSecurityFilterChain(
-            HttpSecurity http,
+    SecurityFilterChain cognitoSecurityFilterChain(HttpSecurity http,
             @Value("${flashstock.tokens.enabled:false}") boolean localTokensEnabled) throws Exception {
-        // The general HTTP Authorization Bearer is ALWAYS a Cognito access token.
-        // FlashStock-issued JWTs are verified only in the narrowly scoped backend-owned controller.
-        http
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .securityContext(context -> context.securityContextRepository(new NullSecurityContextRepository()))
-            .requestCache(cache -> cache.requestCache(new NullRequestCache()))
+        http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .securityContext(c -> c.securityContextRepository(new NullSecurityContextRepository()))
+            .requestCache(c -> c.requestCache(new NullRequestCache()))
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .oauth2Login(AbstractHttpConfigurer::disable)
@@ -71,42 +63,29 @@ public class AwsCognitoSecurityConfig {
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/maps/config").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/auth/me").hasRole(role);
+                    .requestMatchers(HttpMethod.GET, "/api/auth/me").hasAnyRole(USER, ADMIN);
                 if (localTokensEnabled) {
-                    auth.requestMatchers(HttpMethod.POST, "/api/auth/browser/exchange", "/api/auth/browser/authorize", "/api/auth/browser/refresh").hasRole(role)
+                    auth.requestMatchers(HttpMethod.POST,
+                            "/api/auth/browser/exchange",
+                            "/api/auth/browser/authorize",
+                            "/api/auth/browser/refresh").hasAnyRole(USER, ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/auth/browser/revoke").permitAll();
                 }
-                auth.requestMatchers("/api/admin/**").hasRole(role)
+                auth.requestMatchers("/api/admin/**").hasRole(ADMIN)
                     .anyRequest().denyAll();
             });
+
         if (localTokensEnabled) {
-
-            // S4502: reviewed exception for four server-to-server BFF operations.
-            //
-            // BackendOwnedTokenController independently validates:
-            // - Exact trusted Origin.
-            // - Server-only BFF shared secret.
-            // - Cognito ADMIN access token where required.
-            //
-            // No browser session cookie authenticates the Spring Security principal.
-            // All other unsafe requests retain default CSRF protection.
-
-            http.csrf(csrf -> csrf.ignoringRequestMatchers(request -> {
-
-                boolean isPost = HttpMethod.POST.matches(request.getMethod());
-
-                boolean isBffEndpoint = Set.of(
-                        "/api/auth/browser/exchange",
-                        "/api/auth/browser/authorize",
-                        "/api/auth/browser/refresh",
-                        "/api/auth/browser/revoke"
-                ).contains(request.getServletPath());
-
-                return isPost && isBffEndpoint;
-            }));
+            http.csrf(csrf -> csrf.ignoringRequestMatchers(request ->
+                HttpMethod.POST.matches(request.getMethod()) && Set.of(
+                    "/api/auth/browser/exchange",
+                    "/api/auth/browser/authorize",
+                    "/api/auth/browser/refresh",
+                    "/api/auth/browser/revoke"
+                ).contains(request.getServletPath())
+            ));
         }
-        http.oauth2ResourceServer(oauth -> oauth.jwt(jwt ->
-                jwt.jwtAuthenticationConverter(new CognitoAuthoritiesConverter())));
+        http.oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(new CognitoAuthoritiesConverter())));
         return http.build();
     }
 }

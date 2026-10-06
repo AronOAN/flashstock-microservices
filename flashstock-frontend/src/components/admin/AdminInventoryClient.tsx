@@ -1,0 +1,9 @@
+'use client';
+import { useEffect,useState } from 'react';
+import { apiMutation,apiRequest } from '@/lib/api-client';
+import type { InventoryItem } from '@/types/domain';
+import { useSession } from '@/components/session/SessionProvider';
+export default function AdminInventoryClient(){const{session,loading}=useSession();const[items,setItems]=useState<InventoryItem[]>([]);const[status,setStatus]=useState('');async function load(){try{setItems(await apiRequest<InventoryItem[]>('/api/inventory'));setStatus('');}catch(e){setStatus(e instanceof Error?e.message:'Inventario no disponible');}}
+  useEffect(()=>{if(!session?.admin)return;let active=true;apiRequest<InventoryItem[]>('/api/inventory').then(data=>{if(!active)return;setItems(data);setStatus('');}).catch(e=>{if(active)setStatus(e instanceof Error?e.message:'Inventario no disponible');});return()=>{active=false;};},[session?.admin]);
+  async function updateQuantity(sku:string,quantity:number){try{await apiMutation(`/api/inventory/${encodeURIComponent(sku)}/quantity/${quantity}`,'PATCH');await load();}catch(e){setStatus(e instanceof Error?e.message:'No se pudo actualizar');}}if(loading)return <p className="fs-status">Verificando permisos…</p>;if(!session?.admin)return <section className="fs-empty"><h2>Acceso ADMIN requerido</h2></section>;return <section className="fs-section"><span className="fs-kicker">Admin</span><h2>Inventario</h2>{status&&<p className="fs-status">{status}</p>}<div className="fs-table-wrap"><table className="fs-table"><thead><tr><th>SKU</th><th>Producto</th><th>Disponible</th><th>Stock</th><th>Acción</th></tr></thead><tbody>{items.map(item=><tr key={item.sku}><td>{item.sku}</td><td>{item.name}</td><td>{item.quantity}</td><td>{item.stock}</td><td><input className="fs-qty" type="number" defaultValue={item.stock} min={0} onBlur={e=>void updateQuantity(item.sku,Number(e.target.value))}/></td></tr>)}</tbody></table></div></section>;
+}

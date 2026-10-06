@@ -1,0 +1,4 @@
+name=next-java-domain-v3
+created_at=2026-10-06T20:29:15-03:00
+head=0eb63087fa60aedba67010466900ffad7340508b
+root=C:/Users/AronXD/Desktop/Duoc/flashstock-microservices

@@ -1,13 +1,17 @@
-# SOLO INVENTORY. No deja rutas huérfanas de auth/orden/shipping ni utiliza solicitud-dev.
-# Activa enable_inventory_routes cuando el target ECS aparezca healthy y schema migrate tenga exitCode=0.
+# Public storefront receives only the sanitized Catalog projection.
+# Inventory stays ADMIN-only; Cart requires an authenticated USER or ADMIN.
 locals {
   inventory_route_auth = {
+    "GET /api/catalog"            = false
     "GET /api/inventory"          = true
     "GET /api/inventory/{proxy+}" = true
     "POST /api/inventory"         = true
     "ANY /api/inventory/{proxy+}" = true
+    "ANY /api/cart"               = true
+    "ANY /api/cart/{proxy+}"      = true
   }
 }
+
 resource "aws_apigatewayv2_integration" "inventory" {
   count                  = var.enable_inventory_routes ? 1 : 0
   api_id                 = aws_apigatewayv2_api.flashstock.id
@@ -23,6 +27,7 @@ resource "aws_apigatewayv2_integration" "inventory" {
   }
   depends_on = [aws_ecs_service.inventory]
 }
+
 resource "aws_apigatewayv2_route" "inventory" {
   for_each             = var.enable_inventory_routes ? local.inventory_route_auth : {}
   api_id               = aws_apigatewayv2_api.flashstock.id

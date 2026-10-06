@@ -1,6 +1,1 @@
-
-export default function Boleta() {
-    return (
-        <iframe src="/static/boleta.html" style={{ width: '100%', height: '100vh', border: 'none' }}></iframe>
-    );
-}
+import { Suspense } from 'react';import AppShell from '@/components/layout/AppShell';import ReceiptClient from '@/components/receipt/ReceiptClient';export default function ReceiptPage(){return <AppShell><Suspense fallback={<p className="fs-status">Cargando boleta…</p>}><ReceiptClient/></Suspense></AppShell>;}

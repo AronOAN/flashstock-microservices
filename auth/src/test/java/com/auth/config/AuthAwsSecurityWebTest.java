@@ -2,22 +2,22 @@ package com.auth.config;
 
 import com.auth.controllers.AuthController;
 import jakarta.servlet.http.Cookie;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("aws")
@@ -40,13 +40,19 @@ class AuthAwsSecurityWebTest {
     }
 
     @Test
-    void userTokenCannotReadAdminOnlyIdentityOrMetrics() throws Exception {
-        when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("test")
-                .header("alg", "RS256").subject("user-1")
-                .claim("token_use", "access").claim("cognito:groups", List.of("USER"))
+    void userTokenCanReadOwnIdentityButNotAdminEndpoints() throws Exception {
+        when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("test-user")
+                .header("alg", "RS256")
+                .subject("user-1")
+                .claim("token_use", "access")
+                .claim("cognito:groups", List.of("USER"))
                 .build());
+
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer user"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.authenticated").value(true))
+                .andExpect(jsonPath("$.data.admin").value(false));
+
         mvc.perform(get("/api/admin/metrics").header("Authorization", "Bearer user"))
                 .andExpect(status().isForbidden());
     }
@@ -54,12 +60,18 @@ class AuthAwsSecurityWebTest {
     @Test
     void adminTokenCanReadIdentity() throws Exception {
         when(decoder.decode(anyString())).thenReturn(Jwt.withTokenValue("test-admin")
-                .header("alg", "RS256").subject("cognito-admin")
-                .claim("token_use", "access").claim("cognito:groups", List.of("ADMIN"))
+                .header("alg", "RS256")
+                .subject("cognito-admin")
+                .claim("token_use", "access")
+                .claim("cognito:groups", List.of("ADMIN"))
                 .build());
+
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer admin"))
-                .andExpect(status().isOk());
-        // A removed AWS route must not remain accidentally usable even with an admin token.
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.authenticated").value(true))
+                .andExpect(jsonPath("$.data.admin").value(true));
+
+        // La ruta eliminada continúa cerrada incluso para ADMIN.
         mvc.perform(get("/api/auth/providers").header("Authorization", "Bearer admin"))
                 .andExpect(status().isForbidden());
     }

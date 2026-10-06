@@ -1,6 +1,1 @@
-
-export default function Contact() {
-    return (
-        <iframe src="/static/contact.html" style={{ width: '100%', height: '100vh', border: 'none' }}></iframe>
-    );
-}
+import AppShell from '@/components/layout/AppShell';import ContactClient from '@/components/contact/ContactClient';export default function ContactPage(){return <AppShell><ContactClient/></AppShell>;}

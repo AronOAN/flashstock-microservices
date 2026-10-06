@@ -5,7 +5,7 @@ import { siteOrigin } from '@/lib/flashstock-session';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-const allowed = new Set(['auth','admin','inventory','orders','receipts','shipping','maps','cart','payments','coupons']);
+const allowed = new Set(['auth','admin','catalog','inventory','orders','receipts','shipping','maps','cart','payments','coupons']);
 const json = (status:number,message:string,data:unknown=null)=>NextResponse.json({message,data},{status,headers:{'Cache-Control':'no-store'}});
 const anonymous = ()=>json(200,'Sesion anonima',{
   authenticated:false,admin:false,email:null,displayName:'Invitado',authorities:[],scopes:[],permissions:[]
@@ -37,12 +37,12 @@ async function proxy(req:NextRequest,ctx:Context):Promise<NextResponse> {
   if (resolved.unavailable) return finish(json(503,'No se pudo renovar la sesión con Cognito'));
   const session=resolved.session;
   if (process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true'
-      && !['/api/auth/providers','/api/maps/config'].includes(path) && session) {
+      && !['/api/auth/providers','/api/maps/config','/api/catalog'].includes(path) && session) {
     const allowed = await callOwned('authorize',session.accessToken);
     if (!allowed.ok) return finish(json(allowed.status===403?403:401,'Sesión administrativa no autorizada'));
   }
   if (process.env.FLASHSTOCK_ISSUED_TOKENS_ENABLED === 'true'
-      && !['/api/auth/providers','/api/maps/config'].includes(path) && !session
+      && !['/api/auth/providers','/api/maps/config','/api/catalog'].includes(path) && !session
       && path!=='/api/auth/me') return finish(json(401,'Inicio de sesión administrativo requerido'));
   if (path==='/api/auth/me' && req.method==='GET' && !session) return finish(anonymous());
   const base=process.env.FLASHSTOCK_API_BASE_URL;

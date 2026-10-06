@@ -98,7 +98,7 @@ resource "aws_lb_listener_rule" "inventory" {
   }
   condition {
     path_pattern {
-      values = ["/api/inventory", "/api/inventory/*"]
+      values = ["/api/catalog", "/api/inventory", "/api/inventory/*", "/api/cart", "/api/cart/*"]
     }
   }
 }

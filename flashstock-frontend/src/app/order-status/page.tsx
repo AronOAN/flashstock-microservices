@@ -1,6 +1,1 @@
-
-export default function OrderStatus() {
-    return (
-        <iframe src="/static/order-status.html" style={{ width: '100%', height: '100vh', border: 'none' }}></iframe>
-    );
-}
+import AppShell from '@/components/layout/AppShell';import OrderStatusClient from '@/components/orders/OrderStatusClient';export default function OrderStatusPage(){return <AppShell><OrderStatusClient/></AppShell>;}

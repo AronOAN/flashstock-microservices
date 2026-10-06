@@ -1,6 +1,1 @@
-
-export default function Delivery() {
-    return (
-        <iframe src="/static/delivery.html" style={{ width: '100%', height: '100vh', border: 'none' }}></iframe>
-    );
-}
+import AppShell from '@/components/layout/AppShell';import DeliveryClient from '@/components/shipping/DeliveryClient';export default function DeliveryPage(){return <AppShell><DeliveryClient/></AppShell>;}

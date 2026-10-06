@@ -1,0 +1,1 @@
+import AppShell from '@/components/layout/AppShell';import AdminShipmentsClient from '@/components/admin/AdminShipmentsClient';export default function AdminShipmentsPage(){return <AppShell><AdminShipmentsClient/></AppShell>;}

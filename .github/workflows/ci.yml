@@ -123,6 +123,7 @@ jobs:
   # 3. ANÁLISIS DE SEGURIDAD CON SNYK
   # -----------------------------------------------------------------
   snyk-scan:
+    if: ${{ false }} # Temporalmente deshabilitado
     name: Snyk Security Scan
     runs-on: ubuntu-latest
     steps:

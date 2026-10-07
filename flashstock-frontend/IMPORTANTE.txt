@@ -1,1 +1,2 @@
-ADVERTENCIA: frontend/ es parche del frontend que ya existe en GitHub, no frontend autonomo. Consulte README.md
+El frontend necesita un API Gateway con los nuevos endpoints de Auth y las imágenes Java actualizadas.
+Consulta ../DEPLOYMENT.md antes de desplegar. No agregues claves de sesión ni de firma a Vercel.

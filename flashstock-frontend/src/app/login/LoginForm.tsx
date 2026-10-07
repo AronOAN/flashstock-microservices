@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { apiUrl, sessionRequest } from '@/lib/api-client';
 import { useState, type FormEvent } from 'react';
 
 type Challenge = 'NEW_PASSWORD_REQUIRED' | 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA' | 'EMAIL_MFA' | 'EMAIL_OTP' | 'SMS_OTP';
@@ -10,7 +12,8 @@ const challengeLabels: Record<Challenge, string> = {
   EMAIL_MFA: 'Código enviado por correo', EMAIL_OTP: 'Código enviado por correo', SMS_OTP: 'Código enviado por SMS',
 };
 
-export default function LoginForm({ loginError = false }: { loginError?: boolean }) {
+export default function LoginForm() {
+  const loginError = useSearchParams().get('auth_error') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [answer, setAnswer] = useState('');
@@ -23,24 +26,20 @@ export default function LoginForm({ loginError = false }: { loginError?: boolean
     if (busy) return;
     setBusy(true); setMessage('');
     try {
-      const response = await fetch(challenge ? '/auth/password/challenge' : '/auth/password', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(challenge ? (challenge === 'NEW_PASSWORD_REQUIRED' ? { newPassword: answer } : { code: answer }) : { email, password }),
-      });
-      const result: { ok?: boolean; challenge?: Challenge; message?: string } = await response.json();
-      if (response.ok && result.ok) {
+      const result = await sessionRequest<{ accessToken?: string; expiresIn?: number; challenge?: Challenge }>(
+        challenge ? 'challenge' : 'login', challenge ? { answer } : { email, password });
+      if (result.accessToken) {
         setPassword(''); setAnswer('');
         window.location.assign('/');
         return;
       }
-      if (response.status === 202 && result.challenge && result.challenge in challengeLabels) {
+      if (result.challenge && result.challenge in challengeLabels) {
         setChallenge(result.challenge); setPassword(''); setAnswer('');
         return;
       }
-      setMessage(result.message || 'No se pudo iniciar sesión. Inténtalo nuevamente.');
-    } catch {
-      setMessage('No fue posible conectar con el servidor. Inténtalo nuevamente.');
+      setMessage('No se pudo iniciar sesión. Inténtalo nuevamente.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No fue posible conectar con el servidor.');
     } finally { setBusy(false); }
   }
 
@@ -84,9 +83,9 @@ export default function LoginForm({ loginError = false }: { loginError?: boolean
               {busy ? 'Verificando…' : challenge ? 'Verificar' : 'Iniciar sesión'}
             </button>
           </form>
-          {!challenge && <Link className="fs-login-pkce" href="/auth/pkce" prefetch={false}>
+          {!challenge && <a className="fs-login-pkce" href={apiUrl('/api/auth/session/pkce')}>
             Acceder mediante Cognito
-          </Link>}
+          </a>}
           {!challenge && <p className="fs-login-method-note">Esta opción abre la página de Cognito y usa Authorization Code con PKCE.</p>}
           {challenge && <button className="fs-login-restart" type="button" onClick={() => { setChallenge(null); setAnswer(''); setMessage(''); }}>
             Volver al inicio de sesión

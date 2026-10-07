@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { apiRequest } from '@/lib/api-client';
+import { ApiError, apiRequest, logoutSession } from '@/lib/api-client';
 import type { SessionUser } from '@/types/domain';
 
 type SessionContextValue = {
@@ -10,6 +10,11 @@ type SessionContextValue = {
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 };
+const anonymous: SessionUser = {authenticated:false, admin:false, email:null, displayName:'Invitado', authorities:[]};
+async function readSession(): Promise<SessionUser> {
+  try { return await apiRequest<SessionUser>('/api/auth/me'); }
+  catch (error) { if (error instanceof ApiError && error.status === 401) return anonymous; throw error; }
+}
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -20,7 +25,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setSession(await apiRequest<SessionUser>('/api/auth/me'));
+      setSession(await readSession());
       setError(null);
     } catch (cause) {
       setSession(null);
@@ -32,7 +37,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    apiRequest<SessionUser>('/api/auth/me')
+    readSession()
       .then(data => {
         if (!active) return;
         setSession(data);
@@ -50,11 +55,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    const response = await fetch('/auth/logout', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!response.ok) throw new Error('No se pudo cerrar la sesión');
+    await logoutSession();
     setSession({authenticated:false, admin:false, email:null, displayName:'Invitado', authorities:[]});
     window.location.assign('/');
   }, []);

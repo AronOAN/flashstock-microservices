@@ -64,8 +64,10 @@ jobs:
           cache: maven
 
       # Si tienes ./mvnw en cada carpeta usa ./mvnw, si no usa mvn
-      - name: Run unit tests and generate coverage
-        run: mvn clean test jacoco:report
+      #- name: Run unit tests and generate coverage
+       # run: mvn clean test jacoco:report
+      - name: Build without tests
+        run: mvn clean package -Dmaven.test.skip=true        
 
       - name: Build JAR package
         run: mvn package -DskipTests

@@ -12,3 +12,5 @@
 **/.terraform/
 **/*.tfplan
 **/tfplan*
+apply-overlay.sh
+rollback-overlay.sh

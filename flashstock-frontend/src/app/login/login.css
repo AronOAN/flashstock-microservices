@@ -12,3 +12,12 @@
 @media(prefers-reduced-motion:reduce){.fs-login-primary{transition:none}.fs-login-primary:hover{transform:none}}
 .fs-login-pkce{display:flex;align-items:center;justify-content:center;min-height:50px;margin-top:16px;padding:10px 16px;border:1px solid var(--fs-forest);border-radius:12px;color:var(--fs-forest);font-size:14px;font-weight:700;text-align:center}.fs-login-pkce:hover{background:#e8f0e4}
 .fs-login-method-note{margin:9px 0 0;color:var(--fs-muted);font-size:12px;text-align:center}
+/* Login integrado con el navbar global */
+.fs-login-shell {
+  min-height: 0;
+  flex: 1;
+}
+
+.fs-login-aside {
+  min-height: 0;
+}

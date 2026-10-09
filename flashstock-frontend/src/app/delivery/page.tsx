@@ -1,1 +1,9 @@
-import AppShell from '@/components/layout/AppShell';import DeliveryClient from '@/components/shipping/DeliveryClient';export default function DeliveryPage(){return <AppShell><DeliveryClient/></AppShell>;}
+import AppShell from '@/components/layout/AppShell';
+import DeliveryClient from '@/components/shipping/DeliveryClient';
+
+
+export default function DeliveryPage(){
+    
+    return <AppShell><DeliveryClient/></AppShell>;
+
+}

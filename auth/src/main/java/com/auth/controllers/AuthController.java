@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.auth.bff.BffPrincipal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,11 @@ public class AuthController {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        boolean isAdmin = authorities.contains("ROLE_ADMIN");
+        boolean isAdmin = authentication.getAuthorities()
+            .stream()
+            .anyMatch(authority ->
+                "ROLE_ADMIN".equals(authority.getAuthority())
+            );
         Identity identity = resolveIdentity(authentication);
         String email = identity.email();
         String displayName = identity.displayName();
@@ -71,6 +76,14 @@ public class AuthController {
 
     private Identity resolveIdentity(Authentication authentication) {
         Object principal = authentication.getPrincipal();
+        
+        if (principal instanceof BffPrincipal bff) {
+            return new Identity(
+                bff.email(),
+                bff.displayName()
+            );
+        }
+
         if (principal instanceof Jwt jwt) {
             String name = jwt.getClaimAsString("username");
             return new Identity(jwt.getClaimAsString("email"),

@@ -1,1 +1,6 @@
-import AppShell from '@/components/layout/AppShell';import AdminInventoryClient from '@/components/admin/AdminInventoryClient';export default function AdminInventoryPage(){return <AppShell><AdminInventoryClient/></AppShell>;}
+import AppShell from '@/components/layout/AppShell';
+import AdminInventoryClient from '@/components/admin/AdminInventoryClient';
+
+export default function AdminInventoryPage(){
+    return <AppShell><AdminInventoryClient/></AppShell>;
+}

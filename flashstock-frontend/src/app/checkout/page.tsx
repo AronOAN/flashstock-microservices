@@ -1,1 +1,6 @@
-import AppShell from '@/components/layout/AppShell';import CheckoutClient from '@/components/checkout/CheckoutClient';export default function CheckoutPage(){return <AppShell><CheckoutClient/></AppShell>;}
+import AppShell from '@/components/layout/AppShell';
+import CheckoutClient from '@/components/checkout/CheckoutClient';
+
+export default function CheckoutPage(){
+    return <AppShell><CheckoutClient/></AppShell>;
+}
